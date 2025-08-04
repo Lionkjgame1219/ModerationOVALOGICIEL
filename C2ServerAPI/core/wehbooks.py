@@ -2,7 +2,7 @@ import discord
 from discord import SyncWebhook, Embed
 import datetime
 
-webhook = SyncWebhook.from_url("https://discord.com/api/webhooks/1401552241638248458/MJYVryG8t8GKbc5txoekfu9YKKnGNLCHd6TjxWVOD5VSK0fPVA6pzxaenIWk7IYqQ2Dd")
+webhook = SyncWebhook.from_url("METTRE LE LIEN DE VOTRE WEHBOOKs")
 
 def MessageForAdmin(user_id, username, reason, duration_or_msg, categorie):
     with open("admin_pseudo.txt", 'r', encoding="utf-8") as f:
@@ -56,3 +56,4 @@ def MessageForAdmin(user_id, username, reason, duration_or_msg, categorie):
     embed.set_footer(text="Interface Admin")
 
     webhook.send(username="Admin Bot", embed=embed)
+
