@@ -44,6 +44,8 @@ class Chivalry:
         remote_thread, _ = win32process.GetWindowThreadProcessId(hwnd)
         win32process.AttachThreadInput(win32api.GetCurrentThreadId(), remote_thread, True)
         prev_handle = win32gui.SetFocus(hwnd)
+        # Also bring window to foreground to ensure it receives input
+        win32gui.SetForegroundWindow(hwnd)
 
     def checkInGameConsoleOpen(self):
         """Returns true or false, indicating if the in-game console is currently open in extended mode.
@@ -247,38 +249,48 @@ class Chivalry:
         return None
 
     def consoleSend(self, message):
-        """Write a message to the chivalry command console 
-        
-        @param message: A string, the command to enter into the chivalry console. This may contain
-            multiple lines, one command on each line. They will be entered one after another with no delay.
+        """Send a command to the chivalry console.
+
+        @param message: Command string to send to console
         """
         hwnd = self.getChivalryWindowHandle()
+        print(f"[CONSOLESEND] Game window handle: {hwnd}")
         self.getFocus(hwnd)
-        inputLib.typeString(message)
+
+        # Wait for game to be ready for input after focus
+        sleep(0.3)
+
+        print(f"[CONSOLESEND] Sending command: '{message}'")
+        success = inputLib.sendString(message)
+
+        if success:
+            print("[CONSOLESEND] Command sent successfully")
+        else:
+            print("[CONSOLESEND] ERROR: Command sending failed")
 
     def openConsole(self):
-        """Open the chivalry console into extended mode
+        """Open the chivalry console into extended mode.
 
         PRECONDITION: The chivalry console is currently closed
         """
+        print("[OPENCONSOLE] Opening console...")
         hwnd = self.getChivalryWindowHandle()
+        print(f"[OPENCONSOLE] Game window handle: {hwnd}")
         self.getFocus(hwnd)
-        #WARNING: THIS KEYCODE MAY DEPEND ON KEYBOARD LAYOUT
-        #note: scan table:
-        #https://learn.microsoft.com/en-us/previous-versions/visualstudio/visual-studio-6.0/aa299374(v=vs.60)?redirectedfrom=MSDN
-        #seems safe to leave scan code as 0
-        inputLib.sendLetterPress('-') #backtick
-        sleep(0.1)
-        inputLib.sendLetterPress('-') #backtick
 
-    def closeConsole(self):
-        """Close the chivalry console from extended mode
+        # Wait for game to be ready for input after focus
+        sleep(1.0)
 
-        PRECONDITION: The chivalry console is currently open in extended mode
-        """
-        hwnd = self.getChivalryWindowHandle()
-        self.getFocus(hwnd)
-        inputLib.sendLetterPress('-') #backtick
+        print("[OPENCONSOLE] Sending console key...")
+        success = inputLib.sendConsoleKey()
+
+        if success:
+            print("[OPENCONSOLE] Console opened successfully")
+            sleep(0.2)  # Brief wait for console to be ready
+        else:
+            print("[OPENCONSOLE] ERROR: Console opening failed")
+
+    # closeConsole() removed - console auto-closes after Enter
 
     # def walk(self):
     #     """Cause the chivalry client to walk forward in-game for several seconds.

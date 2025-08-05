@@ -337,7 +337,7 @@ class ActionForm(QDialog):
                 try:
                     self.game.banbyid(player_id, time_hour, reason)
                     action_executed = True
-                    QMessageBox.information(self, self.action_name, f"{self.action_name} executed for player {player_id}.\nReason: {reason}\nTime: {time_hour} hours")
+                    #QMessageBox.information(self, self.action_name, f"{self.action_name} executed for player {player_id}.\nReason: {reason}\nTime: {time_hour} hours")
                 except Exception as e:
                     QMessageBox.warning(self, "Game Connection Error", f"Could not execute ban command:\n{str(e)}\n\nNo Discord notification will be sent.")
             else:
@@ -355,7 +355,7 @@ class ActionForm(QDialog):
                 try:
                     self.game.kickbyid(player_id, reason)
                     action_executed = True
-                    QMessageBox.information(self, self.action_name, f"{self.action_name} executed for player {player_id}.\nReason: {reason}")
+                    #QMessageBox.information(self, self.action_name, f"{self.action_name} executed for player {player_id}.\nReason: {reason}")
                 except Exception as e:
                     QMessageBox.warning(self, "Game Connection Error", f"Could not execute kick command:\n{str(e)}\n\nNo Discord notification will be sent.")
             else:
@@ -501,15 +501,15 @@ class PlayersWindow(QDialog):
         if hasattr(self.game, 'ListPlayers'):
             try:
                 self.game.ListPlayers()
-                # ListPlayers now handles timing internally, minimal delay here
-                time.sleep(0.2)
+                # ListPlayers handles timing internally (console auto-closes), minimal delay here
+                time.sleep(0.1)
                 self.players = parse_player_list_from_clipboard()
                 self.filtered_players = self.players.copy()
                 self.populate_list()
             except Exception as e:
                 QMessageBox.warning(self, "Game Connection Error", f"Could not refresh player list:\n{str(e)}")
         else:
-            QMessageBox.warning(self, "No Game Connection", "Cannot refresh player list - Chivalry 2 not connected.\n\nPlease ensure Chivalry 2 is running and you are connected to a server.")'''     
+            QMessageBox.warning(self, "No Game Connection", "Cannot refresh player list - Chivalry 2 not connected.\n\nPlease ensure Chivalry 2 is running and you are connected to a server.")'''
         
     def refresh_player_list(self):
         self.game.ListPlayers()
@@ -734,7 +734,7 @@ class AdminDashboard(QWidget):
             try:
                 self.game.AdminSay(msg)
                 message_sent = True
-                QMessageBox.information(self, "Message Sent", "Admin message sent successfully to game and Discord!")
+                #QMessageBox.information(self, "Message Sent", "Admin message sent successfully to game and Discord!")
             except Exception as e:
                 QMessageBox.warning(self, "Game Error", f"Failed to send message to game:\n{str(e)}\n\nNo Discord notification sent.")
         else:
@@ -760,7 +760,7 @@ class AdminDashboard(QWidget):
             try:
                 self.game.ServerSay(msg)
                 message_sent = True
-                QMessageBox.information(self, "Message Sent", "Server message sent successfully to game and Discord!")
+                #QMessageBox.information(self, "Message Sent", "Server message sent successfully to game and Discord!")
             except Exception as e:
                 QMessageBox.warning(self, "Game Error", f"Failed to send message to game:\n{str(e)}\n\nNo Discord notification sent.")
         else:
@@ -775,8 +775,7 @@ class AdminDashboard(QWidget):
     def open_players_window(self):
         # Check if player window already exists and is visible
         if self.players_window is not None and self.players_window.isVisible():
-            # Window already exists, just bring it to front and refresh
-            self.players_window.refresh_player_list()
+            # Window already exists, just bring it to front (no auto-refresh)
             self.players_window.raise_()
             self.players_window.activateWindow()
         else:
@@ -786,10 +785,7 @@ class AdminDashboard(QWidget):
                 # Connect the finished signal to clean up reference when window is closed
                 self.players_window.finished.connect(lambda: setattr(self, 'players_window', None))
 
-            # Refresh player list when opening
-            self.players_window.refresh_player_list()
-
-            # Set focus to the dialog and bring it to front
+            # Set focus to the dialog and bring it to front (no auto-refresh)
             self.players_window.show()
             self.players_window.raise_()
             self.players_window.activateWindow()
@@ -807,7 +803,8 @@ class AdminDashboard(QWidget):
                 try:
                     self.game.AddTime(added_time)
                     time_added = True
-                    QMessageBox.information(self, "Time Added", f"Successfully added {added_time} minutes to the game!")
+                    # Delay the success message to avoid stealing focus from game during console operations
+                    QTimer.singleShot(2000, lambda: QMessageBox.information(self, "Time Added", f"Successfully added {added_time} minutes to the game!"))
                 except Exception as e:
                     QMessageBox.warning(self, "Game Error", f"Failed to add time to game:\n{str(e)}\n\nNo Discord notification sent.")
             else:
