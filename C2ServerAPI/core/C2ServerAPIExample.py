@@ -9,9 +9,13 @@ class GameChivalry():
         self.game = Chivalry()
 
     def ListPlayers(self):
+        from time import sleep
         self.game.openConsole()
+        sleep(0.2)  # Wait for console to fully open
         self.game.consoleSend("listplayers")
+        sleep(1.0)  # Wait for command to execute and populate clipboard
         self.game.closeConsole()
+        sleep(0.2)  # Wait for console to fully close
 
     def banbyid(self, id, time, reason):
         self.game.openConsole()

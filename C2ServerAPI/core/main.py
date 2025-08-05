@@ -8,6 +8,8 @@ import curses
 import curses.ascii
 from collections import deque
 import socket
+import win32gui
+import datetime
 
 import signal
 signal.signal(signal.SIGINT, signal.SIG_DFL) #so that sigint will actually kill all threads
@@ -30,6 +32,7 @@ args.add_argument('-a', "--a2s-port", required=False, type=int, default=7071)
 args.add_argument('-z', '--no-register', action='store_true', default=False, help="Don't register the server with the server browser")
 args.add_argument('-x', '--password-protected', action='store_true', default=False, help="Indicate to the server that this server is password protected")
 args.add_argument('-m', '--mod', nargs='*', action='append', help="A list of mods to communicate what is enabled to the server browser")
+args.add_argument('-w', '--no-wait', action='store_true', default=False, help="Skip waiting for Chivalry 2 window (for testing without game)")
 args = args.parse_args()
 
 def createWindows(screen, outputWindowBox=None, inputWindowBox=None, outputWindow=None, inputWindow=None):
@@ -77,8 +80,64 @@ def outputString(outputWindow, s):
     outputWindow.addstr(s + "\n")
     outputWindow.refresh()
 
+def check_chivalry_window():
+    """Check if Chivalry 2 window is available"""
+    try:
+        hwnd = win32gui.FindWindow(None, "Chivalry 2  ")  # Note the spaces after the 2
+        return hwnd != 0
+    except Exception:
+        return False
+
+def wait_for_chivalry_window(screen):
+    """Display waiting screen until Chivalry 2 window is found"""
+    _, _, outputWindow, inputWindow = createWindows(screen)
+
+    outputWindow.addstr("Waiting for Chivalry 2 to start...\n")
+    outputWindow.addstr("Please launch Chivalry 2 and wait for it to fully load.\n\n")
+    outputWindow.addstr("Status: Searching for Chivalry 2 window...\n")
+    outputWindow.addstr("Press Ctrl+C to exit.\n\n")
+    outputWindow.refresh()
+
+    dots = 0
+    check_count = 0
+
+    while not check_chivalry_window():
+        check_count += 1
+
+        # Update the waiting animation
+        dots = (dots + 1) % 4
+        status_line = f"Checking for Chivalry 2 window{'.' * dots}{' ' * (3 - dots)} (Check #{check_count})"
+
+        # Clear the status line and update it
+        outputWindow.move(3, 0)
+        outputWindow.clrtoeol()
+        outputWindow.addstr(3, 0, f"Status: {status_line}")
+
+        # Add timestamp
+        current_time = datetime.datetime.now().strftime("%H:%M:%S")
+        outputWindow.move(6, 0)
+        outputWindow.clrtoeol()
+        outputWindow.addstr(6, 0, f"Last check: {current_time}")
+
+        outputWindow.refresh()
+        sleep(1)  # Check every second
+
+    # Chivalry 2 found!
+    outputWindow.move(3, 0)
+    outputWindow.clrtoeol()
+    outputWindow.addstr(3, 0, "Status: ✓ Chivalry 2 window found!")
+    outputWindow.move(7, 0)
+    outputWindow.addstr(7, 0, "Proceeding with RCON interface setup...\n")
+    outputWindow.refresh()
+    sleep(2)  # Give user time to see the success message
+
 def main(screen):
-    try: 
+    try:
+        # First, wait for Chivalry 2 to be available (unless --no-wait is specified)
+        if not args.no_wait:
+            wait_for_chivalry_window(screen)
+
+        # Now proceed with normal setup
         _, _, outputWindow, inputWindow = createWindows(screen)
         if args.no_register:
             outputWindow.addstr("Setting up rcon interface with no server browser listing.\n")
