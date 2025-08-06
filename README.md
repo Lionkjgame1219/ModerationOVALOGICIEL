@@ -68,7 +68,7 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
 - Then, you will be prompted to enter your Discord ID (only if you're using Webhooks). Necessary to let the bot know that **you** did the command. Here's how to find it :
 
-  Get into your discord window, go to "**User settings**", then scroll down to find "**Advanced**", and then, **enable** "**Developer mode*".
+  Get into your discord window, go to "**User settings**", then scroll down to find "**Advanced**", and then, **enable** "**Developer mode**".
 
   With that done, get out of the settings menu, right click on your name **within any chat or server member list**, and click on the last option, which should be something like "**Copy user ID**".
 
