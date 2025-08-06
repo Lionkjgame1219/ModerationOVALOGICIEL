@@ -115,7 +115,7 @@ Now, let's get back to the main dashboard.
 
 - **"Light / Dark Mode"** is just here for your visual comfort, so if, for some reason, you desire to get flashbanged, all of a sudden, you are free to.
 
-Can also be used to enlighten your bedroom, since Chiv server mods are known to live in darkness and loneliness.
+   Can also be used to enlighten your bedroom, since Chiv server mods are known to live in darkness and loneliness.
 
 ### Additional feature
 
