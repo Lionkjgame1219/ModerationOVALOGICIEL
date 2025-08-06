@@ -2,3 +2,7 @@
 /C2ServerAPI/core/__pycache__
 C2ServerAPI/RegisterUnchainedServer.errorlog.txt
 C2ServerAPI/localconfig
+/C2ServerAPI/build
+C2ServerAPI/dist/AdminDashboard.exe
+C2ServerAPI/AdminDashboard.spec
+C2ServerAPI/dist/localconfig

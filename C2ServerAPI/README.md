@@ -1,80 +1,98 @@
-See documentation [here](https://chiv2-community.github.io/C2ServerAPI/)
+# Chivalry 2 GUI Server Moderation Panel
 
-Build documentation locally by running `doxygen` in the top-level directory (where the Doxyfile is)
+## **This program is only meant to work on Windows systems for now, future Linux support _might_ come someday**_, or not..._
 
-# Setting up an unchained server
+### Setup
 
-Excessive moddification of ini files or other mods before starting this may cause issues. If you have problems, try completely deleting `%localappdata%/Chivalry 2` and reinstalling chivalry 2 before doing this tutorial again.
+**This section is only of interest if you plan to work with the source files directly. If you plan to use the compiled version from the [releases page](https://github.com/Lionkjgame1219/ModerationOVALOGICIEL/releases), you can skip this part.**
 
-## Definitions:
-* Host machine: 
-  * The computer hosting the chivalry 2 server
-* Host instance: 
-  * The instance of chivalry 2 acting as the "server." A single machine may run chivalry 2 twice, with one instance running as a client and the other as a server.
-* Client instance:
-  * See above, but it's a client instead.
-* Backend:
-  * An instance of our [C2ServerBrowserBackend](https://github.com/Chiv2-Community/C2ServerBrowserBackend). We run one at `servers.polehammer.net`, so you don't have to. This imitates portions of the playfab API to send custom MOTD and server list results to clients that target it.
-
-## initial setup
-
-1. Install unchained on the host as you normally would. Make sure unchained is replacing the normal chivalry 2 launcher. (you will be prompted to do this on install)
-2. Go to the 'server' tab of the unchained launcher and enter your server's name and other configuration
-
-If Chivalry 2 has not run on this machine before, or you deleted `%localappdata%/Chivalry 2`:
-Click "Launch headless" in the bottom right. Let this run for ~20 seconds to ensure that ini files are generated before closing all windows that opened. You may be prompted to download several files: Click "Yes"
-
-**IMPORTANT FOR NFO HOSTS:** If you are using NFO hosting, there is a port conflict with UDP/7777. Change your game port to 7778 in the server tab. No other action is needed. If you do not do this then you will experience extreme gameplay degredation.
-
-## Necessary ini Tweaks
-There are two ini settings that must be set in order to successfully host. Navigate to `%localappdata%/Chivalry 2/Saved/Config/WindowsNoEditor` in your file browser and open `Game.ini`. Add the following lines to the top of the file:  
-```ini
-[/Script/TBL.TBLGameInstance]
-FirstLoadCompleted=True
-
-[/Script/TBL.TBLTitleScreen]
-bSavedHasAgreedToTOS=True
+Make sure to have all of the required Python libraries. Here is the list of all of pip commands, ready to paste (pip will automatically download any library that is missing) :
+```
+pip install a2s
+pip install discord.py
+pip install Pillow
+pip install PyQt5
+pip install pyperclip
+pip install pytesseract
+pip install pywin32
+pip install requests
+pip install windows-curses
 ```
 
-**NOTE:** If the TBLGameInstance or TBLTitleScreen sections are already present somewhere in the file, add the lines to those sections instead of making a duplicate.
+If you wish to make your script a compiled executable later :
+```
+pip install pyinstaller
+```
 
-## launching
-Go back to the server tab in the unchained launcher and click "Launch Headless". You may be prompted to download several files: Click "Yes". Two windows will open. The first is the unchained debug window, which you will see during normal unchaiend launches. The second is your server's RCON control panel. This registers your server with the unchained backend (so that it appears in the unchaiend in-game server list) and allows you to execute server commands. These commands are from the same list as the in-game console.
+You will also need to manually install [Tesseract-OCR](https://github.com/tesseract-ocr/tesseract/releases), and then add it in your system "**PATH**" variable environment.
 
-## port forwarding
-NFO Hosts: NFO servers have automatic port forwarding--you don't have to do anything here.
+Normally, everything should be working from there.
 
-Before anyone other than you can join your server, you need to forward your ports. (expose them to to the open internet)
-You must forward the following ports:
-- Game Port (default UDP/7777)
-- Ping Port (default UDP/3075)
+To run the script, you can run this command into a terminal, either using **cmd** or **powershell**, **within the "C2ServerAPI" folder**:
+```
+python interface.py
+```
 
-Additional ports that are used but do not need to be or should not be forwarded:
-- RCON port (default TCP/9001)
-- A2S port (default UDP/7071)
+If you want to compile the script to a .exe file, here is a command, also to be ran in your terminal, and from the same location :
+```
+pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheCompiledProgram] --add-data "core;core" --hidden-import a2s --hidden-import requests --hidden-import windows-curses --hidden-import pywin32 --hidden-import PIL --hidden-import PIL.ImageGrab --hidden-import PIL.ImageDraw --hidden-import PIL.ImageFont --hidden-import pyperclip --hidden-import PyQt5.QtWidgets --hidden-import PyQt5.QtGui --hidden-import PyQt5.QtCore --hidden-import pytesseract --hidden-import=win32gui --hidden-import=win32con --hidden-import=win32process --hidden-import=win32api --hidden-import=discord interface.py
+```
 
-***The RCON port (TCP/9001) should not be exposed to the open internet!*** Doing this would give anyone and their grandma full freedom to execute admin commands on your server! They (likely) can't hack your machine through this, but they *can* ban people, kick people, and change the map to whatever they want! If you want your admins accessing this, use [ssh tunneling](https://www.ssh.com/academy/ssh/tunneling-example) or set up your firewall rules to allow only them!
+### First launch
 
-The ports you need to forward are visible (and can be changed to whatever you want before launching) in the server tab of the unchained launcher. Doing this follows the same procedure as forwarding ports for any other game, and thus will not be described here. Tutorials for port forwarding can be found online.
+1. As soon as you will open up the program, you will be prompted to add a Discord Webhook link, so that the scipt can send a message in the channel of your Webhook for every action you made.
 
-# troubleshooting
+   Useful for keeping a per server history of bans, allowing anyone to review the name of the person who did the action, the duration and the reason of a kick / ban, and the PlayFabID in case you want to undo a ban.
 
-## A2S Timed Out
-On the initial start of your server, these messages are normal. The console attempts to connect to the chivalry server before it has actually had time to start up and listen. If these messages do not stop appearing after ~30 seconds, then there is something wrong.
+   If you don't have a link, either create one in the server settings (for the server that will be notified), and create a Webhook in **"Server settings -> Integrations -> Webhooks -> New webhook"**.
 
-1. Try sending a console command. 
-   1. If you get an error in the server console, this means that the chivalry process is not listening on RCON. This indicates a plugin loading issue. Close the server windows and re-start it. If the issue persists, contact the Unchained Team for help.
-   2. If you see the same console command appear in the debug output window, this indicates that the plugins are loaded, but the server has not yet loaded into the map to listen on the A2S port.
-      1. Check if there is a "Substituted console command" line in the debug output. If there is one, contact the Unchained Team--this indicates there is an issue in the Unchained-Mods and map loading machinery.
-      2. If there is no "Substituted console command" line, this suggests an ini misconfiguration. Go to the *Necessary ini Tweaks* section and ensure the required ini lines are present. If you keep having trouble, contact the Unchained Team
+   Be sure to select the proper channel in which the notifications will be sent to.
 
-## Severe network lag
-NFO hosts: Make sure your game port is NOT 7777. Change it to 7778.  
+2. Then, you will be prompted to enter your Discord ID (only if you're using Webhooks). Here's how to find it :
 
-Other hosts: Make sure you don't have any applications using UDP/7777 on your computer.
+   Get into your discord windows, go to "User settings", then scroll down to find "Advanced", and then, enable "Developer mode".
 
-## Known Issues
-1. For the host instance, animations are bugged. There is no workaround for this other than launching another instance, joining as a client, and playing on that instead.
-2. netcode is very sensitive to host and client FPS. It is strongly recommended that you cap the fps of the host instance, and advertise that fps in your server description. Clients should lock their fps to match. If the host is running at, for example, 120fps:
-   * clients running at lower (<120) fps will get delayed hits, swing-throughs, and other netcode issues.
-   * clients running at higher (>120) fps will get accelerated/early hits.
+   With that done, get out of the settings menu, right click on your name within any chat or server member list, and click on the last option, which should be something like "Copy user ID".
+
+   This ID is the one you need to enter.
+
+### Once everything is done
+
+You will now have access to the dashboard. Everything should be pretty straightforward.
+
+**"Admin Message"** is going to be sending an "adminsay" command, along with the text you provided.
+
+**"Server Message"** is basically the same as the admin one, but using the "serversay" command instead.
+
+**"Connected Players"** is going to open up a new window, in which you are gonna have an empty board and a button to refresh the list of all the players connected to the server you are currently playing on.
+
+The board is gonna be populated after the first list refresh attempt.
+
+**This feature can sometimes not work at every refreshes. This is due to how this program works. A more reliable system is gonna be implemented in future releases, but for now, don't expect a bug-free experience."**
+
+After the board is populated, you can click on a player to have access to three buttons :
+
+1. One for banning him, which will ask you for every informations needed for the ban.
+
+   Required informations are :
+
+      a - Ban duration **(in hours)**
+
+      b - Ban reason **(e.g. "This is a duel server, FFA / RDM is prohibited.")**
+
+2. Another one to simply kick him. Only a reason is gonna be required, not a duration (kicking has a fixed duration of 15 or 30 minutes).
+
+3. The third one is gonna be a redirect link the the player's tracker profile on the website **"chivalry2stats.com"**, the most visited site for this matter. Useful to find any old username associated to the player's account.
+
+Now let's get back to the main dashboard.
+
+**"Add Time"** is just a button to add time to the map. Note that you can provide a negative value to **substract time** to the map.
+(e.g. "-10" to substract 10 minutes)
+
+**Configure Discord Webhook** is here if need to update or remove a webhook link you provided previously. You can also add one if you never provided it.
+
+**Configure Discord User ID** is also made to add, update, or remove your Discord User ID.
+
+**Light / Dark Mode** is just here for your visual comfort, so if, for some reason, you desire to get flashbanged, all of a sudden, you are free to.
+
+Can also be used to enlighten your bedroom, since Chiv server mods are known to live in darkness and loneliness.
