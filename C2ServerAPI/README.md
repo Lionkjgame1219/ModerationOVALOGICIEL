@@ -50,6 +50,8 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
 ***Sending inputs on your side (pressing keys on your keyboard) will either, do nothing, or just introduce bugs, so please let the program be done with the command processing before trying to do anything in the game.***
 
+***A more reliable system is gonna be implemented in future releases, but for now, that's how it is.***
+
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 - As soon as you will open up the program, you will be prompted to add a Discord Webhook link, so that the script can send a message in the channel of your Webhook for every action you made.
@@ -84,8 +86,8 @@ You will now have access to the dashboard. Everything should be pretty straightf
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-   This feature can, sometimes, not work at every refreshes. This is due to how this program works. A more reliable system is gonna be implemented in future releases, but for now, don't expect a bug-free experience.
-
+   This feature can, sometimes, not work at every refreshes.
+   
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
   After the board is populated, you can click on a player to have access to three buttons :
@@ -102,7 +104,7 @@ You will now have access to the dashboard. Everything should be pretty straightf
 
    3. The third button is gonna be a redirect link to the player's tracker profile on the website **"chivalry2stats.com"**, the most visited site for this matter. Useful to find any old username associated to the player's account.
 
-Now let's get back to the main dashboard.
+Now, let's get back to the main dashboard.
 
 - **"Add Time"** is just a button to add time to the map. Note that you can provide a negative value to substract time to the map.
 (e.g. "-10" to substract 10 minutes)
