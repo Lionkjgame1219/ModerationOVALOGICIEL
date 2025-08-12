@@ -58,7 +58,9 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
   Useful for keeping a per server history of bans, allowing anyone to review the name of the person who did the action, the duration and the reason of a kick / ban, and the PlayFabID, in case you want to undo a ban.
 
-  If you don't have a link, either create one in the server settings (for the server that will be notified), and create a Webhook in "**Server settings** -> **Integrations** -> **Webhooks** -> **New webhook**".
+  If you don't have a link, either create one in the server settings (for the server that will be notified), or ask to your discord server admin to create one and give you the link.
+
+  To create a Webhook, you can go to "**Server settings** -> **Integrations** -> **Webhooks** -> **New webhook**".
 
   Be sure to select the proper channel in which the notifications will be sent to.
 
@@ -66,7 +68,7 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
 - Then, you will be prompted to enter your Discord ID (only if you're using Webhooks). Necessary to let the bot know that **you** did the command. Here's how to find it :
 
-  Get into your discord window, go to "**User settings**", then scroll down to find "**Advanced**", and then, **enable** "**Developer mode*".
+  Get into your discord window, go to "**User settings**", then scroll down to find "**Advanced**", and then, **enable** "**Developer mode**".
 
   With that done, get out of the settings menu, right click on your name **within any chat or server member list**, and click on the last option, which should be something like "**Copy user ID**".
 
