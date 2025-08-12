@@ -513,7 +513,7 @@ class PlayersWindow(QDialog):
         
     def refresh_player_list(self):
         self.game.ListPlayers()
-        time.sleep(0.5)
+        time.sleep(5.0)
         self.players = parse_player_list_from_clipboard()
         self.filtered_players = self.players.copy()
         self.populate_list()
@@ -658,10 +658,6 @@ class AdminDashboard(QWidget):
 
         # Keep track of player window instance
         self.players_window = None
-
-
-
-
 
     def check_game_connection(self):
         """Check game and server connection status"""
