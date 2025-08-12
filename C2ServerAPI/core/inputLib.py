@@ -10,42 +10,11 @@ KEY_PRESS_DURATION = 0.01      # Time between key down and key up (was 0.05)
 KEY_SEQUENCE_DELAY = 0.005     # Delay between individual key presses (was 0.02)
 COMMAND_COMPLETION_DELAY = 0.0 # Delay after typing complete command (was 0.1)
 
-# Small helper to send Ctrl+<key> combos
-def sendCtrlCombo(vk_code):
-    try:
-        win32api.keybd_event(win32con.VK_CONTROL, 0, 0)
-        sleep(KEY_PRESS_DURATION / 2)
-        win32api.keybd_event(vk_code, 0, 0)
-        sleep(KEY_PRESS_DURATION)
-        win32api.keybd_event(vk_code, 0, win32con.KEYEVENTF_KEYUP)
-        sleep(KEY_PRESS_DURATION / 2)
-        win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP)
-        sleep(KEY_SEQUENCE_DELAY)
-        return True
-    except Exception as e:
-        print(f"[INPUT] ERROR sending Ctrl+VK 0x{vk_code:02X}: {e}")
-        return False
-
-def clearInputLine():
-    """Clear the current console input line by selecting all and deleting.
-
-    Safe to call even if the line is empty.
-    """
-    # Ctrl+A to select all
-    sendCtrlCombo(0x41)  # 'A'
-    # Backspace to clear selection/content
-    sendKeyPress(win32con.VK_BACK)
-    # A couple extra backspaces just in case
-    sendKeyPress(win32con.VK_BACK)
-    sendKeyPress(win32con.VK_BACK)
-
-
 def sendKeyPress(vk_code):
     """Send a single key press with reliable timing.
 
     @param vk_code: Virtual key code to press
     """
-    #print(f"[INPUT] Pressing VK 0x{vk_code:02X}")
 
     # Key down
     win32api.keybd_event(vk_code, 0, 0)
@@ -60,7 +29,6 @@ def sendShiftedKeyPress(vk_code):
 
     @param vk_code: Virtual key code to press with shift
     """
-    #print(f"[INPUT] Pressing Shift+VK 0x{vk_code:02X}")
 
     # Shift down
     win32api.keybd_event(win32con.VK_LSHIFT, 0, 0)
@@ -83,7 +51,6 @@ def sendCharacter(char):
 
     @param char: Single character to send
     """
-    #print(f"[INPUT] Sending character: '{char}'")
 
     try:
         # Use VkKeyScan for layout-independent character mapping
@@ -96,7 +63,6 @@ def sendCharacter(char):
         vk_code = vk_result & 0xFF
         shift_state = (vk_result >> 8) & 0xFF
 
-        #print(f"[INPUT] VkKeyScan result: VK=0x{vk_code:02X}, Shift={shift_state}")
 
         if shift_state & 1:  # Shift required
             sendShiftedKeyPress(vk_code)
@@ -114,7 +80,6 @@ def sendString(text):
 
     @param text: String to type
     """
-    #print(f"[INPUT] Sending string: '{text}'")
 
     success = True
     for char in text:
@@ -122,7 +87,6 @@ def sendString(text):
             success = False
 
     # Send Enter key to execute command immediately
-    #print("[INPUT] Sending Enter key")
     sendKeyPress(win32con.VK_RETURN)
 
     # No extra wait by default; caller handles any necessary settling

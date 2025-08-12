@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
     QFormLayout, QLineEdit, QDialogButtonBox, QMessageBox, QListWidget, QHBoxLayout, QGroupBox, QSpacerItem, QSizePolicy, QInputDialog, QProgressBar
 )
 from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, QAbstractNativeEventFilter, QAbstractEventDispatcher
 import pyperclip
 import time
 import os
@@ -12,15 +12,57 @@ import sys
 import win32gui
 import json
 
+import re
+
 
 from core.C2ServerAPIExample import GameChivalry
 from core.guiServer import Chivalry
 import core.wehbooks as wehbooks
+import ctypes
+import ctypes.wintypes as wintypes
+
+# Windows clipboard update message
+WM_CLIPBOARDUPDATE = 0x031D
+
+class MSG(ctypes.Structure):
+    _fields_ = [
+        ("hwnd", wintypes.HWND),
+        ("message", wintypes.UINT),
+        ("wParam", wintypes.WPARAM),
+        ("lParam", wintypes.LPARAM),
+        ("time", wintypes.DWORD),
+        ("pt_x", wintypes.LONG),
+        ("pt_y", wintypes.LONG),
+    ]
+
+class WinClipboardEventFilter(QAbstractNativeEventFilter):
+    def __init__(self, callback):
+        super().__init__()
+        self._callback = callback
+
+    def nativeEventFilter(self, eventType, message):
+        try:
+            if eventType != 'windows_generic_MSG':
+                return False, 0
+            msg = MSG.from_address(int(message))
+            if msg.message == WM_CLIPBOARDUPDATE:
+                # Fire callback on clipboard update
+                self._callback()
+        except Exception:
+            pass
+        return False, 0
+
+user32 = ctypes.windll.user32
+user32.AddClipboardFormatListener.argtypes = [wintypes.HWND]
+user32.AddClipboardFormatListener.restype = wintypes.BOOL
+user32.RemoveClipboardFormatListener.argtypes = [wintypes.HWND]
+user32.RemoveClipboardFormatListener.restype = wintypes.BOOL
+
 
 def check_chivalry_window():
     """Check if Chivalry 2 window is available"""
     try:
-        hwnd = win32gui.FindWindow(None, "Chivalry 2  ")
+        hwnd = win32gui.FindWindow(None, "Chivalry 2  ")  # Note the spaces after the 2
         return hwnd != 0
     except Exception:
         return False
@@ -157,18 +199,47 @@ class ChivalryWaitingDialog(QDialog):
         else:
             self.status_label.setText(f"Searching for Chivalry 2 window...")
 
-def parse_player_list_from_clipboard():
-    text = pyperclip.paste()
-    lines = text.strip().splitlines()
-    data_lines = lines[2:]
+def parse_player_list_from_clipboard(text: str = None):
+    """Parse players from provided clipboard text or current clipboard.
+    Strategy:
+      - Find the last occurrence of the header row (with Name/PlayFabPlayerId/EOSPlayerId...),
+        and parse only the rows that follow it. This avoids mixing old and new snapshots
+        if the clipboard happens to contain multiple blocks.
+      - Return a list of (name, playfab_id) with simple de-duplication by PlayFab ID.
+    """
+    if text is None:
+        try:
+            text = pyperclip.paste()
+        except Exception:
+            text = ""
+    lines = (text or "").strip().splitlines()
+
+    # Find the last header line index
+    header_indices = [i for i, l in enumerate(lines)
+                      if ('Name' in l and 'PlayFabPlayerId' in l and 'EOSPlayerId' in l)]
+    start_idx = header_indices[-1] + 1 if header_indices else (2 if len(lines) >= 3 else 0)
+
     players = []
-    for line in data_lines:
-        parts = [p.strip() for p in line.split(" - ")]
+    seen_ids = set()
+    for line in lines[start_idx:]:
+        if ' - ' not in line:
+            continue
+        parts = [p.strip() for p in line.split(' - ')]
         if len(parts) < 2:
             continue
         name = parts[0]
         playfab_id = parts[1]
+        # Skip if looks like header row
+        if name.lower() == 'name' or playfab_id.lower().startswith('playfab'):
+            continue
+        # Basic sanity for PlayFab ID (hex-like and length >= 12)
+        if len(playfab_id) < 12:
+            continue
+        if playfab_id in seen_ids:
+            continue
+        seen_ids.add(playfab_id)
         players.append((name, playfab_id))
+
     return players
 
 class ActionForm(QDialog):
@@ -520,11 +591,27 @@ class PlayersWindow(QDialog):
         except Exception as e:
             print(f"[PLAYERS WINDOW] Could not connect to Chivalry 2: {e}")
         main_layout = QVBoxLayout()
+
+        # Info row for server name and players count
+        info_row = QHBoxLayout()
+        self.server_label = QLabel("Server: -")
+        self.player_count_label = QLabel("Players: 0")
+        info_row.addWidget(self.server_label)
+        info_row.addStretch(1)
+        info_row.addWidget(self.player_count_label)
         top_layout = QHBoxLayout()
         title = QLabel("<h3>Players List:</h3>")
         title.setAlignment(Qt.AlignLeft)
         top_layout.addWidget(title)
         refresh_btn = QPushButton("Refresh Player List")
+        # Register for clipboard update messages via native event filter
+        app = QApplication.instance()
+        try:
+            self._cb_event_filter = WinClipboardEventFilter(self._on_native_clipboard_update)
+            QAbstractEventDispatcher.instance().installNativeEventFilter(self._cb_event_filter)
+        except Exception:
+            self._cb_event_filter = None
+
         refresh_btn.clicked.connect(self.refresh_player_list)
         refresh_btn.setStyleSheet("""
             QPushButton {
@@ -545,6 +632,7 @@ class PlayersWindow(QDialog):
             }
         """)
         main_layout.addWidget(refresh_btn)
+        main_layout.addLayout(info_row)
         main_layout.addLayout(top_layout)
         self.search_bar = QLineEdit()
         self.search_bar.setPlaceholderText("Search by ID or Player Name...")
@@ -554,42 +642,100 @@ class PlayersWindow(QDialog):
         main_layout.addWidget(self.search_bar)
         self.player_list.itemClicked.connect(self.open_player_actions)
         self.setLayout(main_layout)
+        if self.game is not None:
+            self.refresh_player_list()
 
     def refresh_player_list(self):
-
-        try:
-            prev_clip = pyperclip.paste()
-        except Exception:
-            prev_clip = None
-
-        # Ask game to populate clipboard with the players list
+        # Mark that we're waiting for clipboard update from the game
+        self.awaiting_player_list = True
         try:
             if hasattr(self.game, 'ListPlayers'):
                 self.game.ListPlayers()
             else:
                 QMessageBox.warning(self, "No Game Connection", "Cannot refresh player list - Chivalry 2 not connected.\n\nPlease ensure Chivalry 2 is running.")
+                self.awaiting_player_list = False
                 return
         except Exception as e:
             QMessageBox.warning(self, "Game Connection Error", f"Could not refresh player list:\n{str(e)}")
+            self.awaiting_player_list = False
             return
 
-        # Poll clipboard for change for up to 2 seconds (50 Hz)
-        t0 = time.time()
-        while time.time() - t0 < 2.0:
-            try:
-                cur_clip = pyperclip.paste()
-            except Exception:
-                cur_clip = None
+        # Fallback if clipboard update signal does not arrive
+        QTimer.singleShot(1500, self._fallback_parse_clipboard)
 
-            # Change detected and looks like it contains player rows
-            if cur_clip and cur_clip != prev_clip and " - " in cur_clip:
-                break
-            time.sleep(0.05)
+    def on_clipboard_changed(self):
+        """Qt clipboard signal handler; process only when awaiting player list."""
+        if not getattr(self, 'awaiting_player_list', False):
+            return
+        try:
+            text = pyperclip.paste()
+        except Exception:
+            text = ""
+        if " - " in (text or ""):
+            self.players = parse_player_list_from_clipboard()
+            self.filtered_players = self.players.copy()
+            self.populate_list()
+            self._update_info_from_text(text)
+            self.awaiting_player_list = False
 
-        # Parse whatever is currently in the clipboard
-        self.players = parse_player_list_from_clipboard()
-        self.filtered_players = self.players.copy()
-        self.populate_list()
+    def _fallback_parse_clipboard(self):
+        if not getattr(self, 'awaiting_player_list', False):
+            return
+        try:
+            text = pyperclip.paste()
+        except Exception:
+            text = ""
+        if " - " in (text or ""):
+            self.players = parse_player_list_from_clipboard()
+            self.filtered_players = self.players.copy()
+            self.populate_list()
+            self._update_info_from_text(text)
+            self.awaiting_player_list = False
+
+    def populate_list(self):
+        self.player_list.clear()
+        for name, pid in self.filtered_players:
+            self.player_list.addItem(f"{name} - {pid}")
+
+    def _update_info_from_text(self, text: str):
+        """Extract server name and player count and update the info row labels.
+        Expected header example:
+        "ServerName - OATS Duelyard  [Flourish to Duel Pit FFA Discord oatsduelyard] 134.255.251.182:10180"
+        """
+        lines = (text or "").strip().splitlines()
+        server_name = "-"
+        if lines:
+            header = lines[0].strip()
+            # Remove a trailing IP:port from header if present
+            header_no_ip = re.sub(r"\s*(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\s*$", "", header)
+
+            # Preferred: capture the name after 'ServerName - ' up to a double space before the next section
+            m = re.match(r"^\s*ServerName\s*-\s*(.+?)\s{2,}.*$", header_no_ip)
+            if m:
+                server_name = m.group(1).strip()
+            else:
+                # Fallbacks if format varies slightly
+                if header_no_ip.lower().startswith("servername") and '-' in header_no_ip:
+                    try:
+                        after_dash = header_no_ip.split('-', 1)[1].strip()
+                        # stop at first double-space chunk if present
+                        server_name = after_dash.split('  ')[0].strip() or server_name
+                    except Exception:
+                        pass
+                elif ' - ' in header_no_ip:
+                    try:
+                        server_name = header_no_ip.split(' - ', 1)[1].split('  ')[0].strip() or server_name
+                    except Exception:
+                        pass
+            # Extra safety: strip any trailing IP:port if it slipped into the name
+            server_name = re.sub(r"\s*(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\s*$", "", server_name)
+
+        # Count players: skip the two header lines and count rows that look like player entries
+        data_lines = lines[2:] if len(lines) >= 3 else []
+        player_rows = [ln for ln in data_lines if " - " in ln]
+        count = len(player_rows)
+        self.server_label.setText(f"Server: {server_name}")
+        self.player_count_label.setText(f"Players: {count}")
 
     def populate_list(self):
         self.player_list.clear()
@@ -691,8 +837,6 @@ class ConsoleKeyDialog(QDialog):
         self.captured_vk = int(vk)
         self.status.setText(f"Captured key: VK {self.captured_vk}. Click OK to save or press another key.")
         self.ok_button.setEnabled(True)
-        # Do not call base to avoid beep
-        # super().keyPressEvent(event)
 
 class AdminDashboard(QWidget):
     def __init__(self):
@@ -1055,10 +1199,10 @@ class AdminDashboard(QWidget):
     def update_connection_status(self):
         """Update the connection status display"""
         if self.chivalry_connected:
-            self.status_label.setText("Chivalry 2 is running and detected.")
+            self.status_label.setText("Chivalry 2 Connected")
             self.status_label.setStyleSheet("color: green; font-weight: bold;")
         else:
-            self.status_label.setText("Chivalry 2 is not running or not detected.")
+            self.status_label.setText("Chivalry 2 Not Connected")
             self.status_label.setStyleSheet("color: red; font-weight: bold;")
 
 
@@ -1097,8 +1241,13 @@ class AdminDashboard(QWidget):
             try:
                 self.game.AdminSay(msg)
                 message_sent = True
+                #QMessageBox.information(self, "Message Sent", "Admin message sent successfully to game and Discord!")
             except Exception as e:
                 QMessageBox.warning(self, "Game Error", f"Failed to send message to game:\n{str(e)}")
+
+        # Only send Discord notification if the message was actually sent to game
+        if message_sent:
+            wehbooks.MessageForAdmin("N/A", "N/A", msg, None, "adminsay")
 
         self.admin_message_input.clear()
 
@@ -1121,6 +1270,10 @@ class AdminDashboard(QWidget):
                 message_sent = True
             except Exception as e:
                 QMessageBox.warning(self, "Game Error", f"Failed to send message to game:\n{str(e)}")
+
+        # Only send Discord notification if the message was actually sent to game
+        if message_sent:
+            wehbooks.MessageForAdmin("N/A", "N/A", msg, None, "serversay")
 
         self.server_message_input.clear()
 
@@ -1161,8 +1314,17 @@ class AdminDashboard(QWidget):
                 try:
                     self.game.AddTime(added_time)
                     time_added = True
+                    # Delay the success message to avoid stealing focus from game during console operations
+                    QTimer.singleShot(2000, lambda: QMessageBox.information(self, "Time Added", f"Successfully added {added_time} minutes to the game!"))
                 except Exception as e:
                     QMessageBox.warning(self, "Game Error", f"Failed to add time to game:\n{str(e)}")
+
+            # Only send Discord notification if time was actually added to game
+            if time_added:
+                # Persist last add time
+                set_persisted_value('last_add_time', str(added_time))
+                wehbooks.MessageForAdmin("N/A", "N/A", f"Added {added_time} minutes", added_time, "time")
+
 
     def prompt_wide_text(self, title, label, text):
         dlg = QInputDialog(self)

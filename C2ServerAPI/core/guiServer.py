@@ -1,6 +1,6 @@
 """Provides a class encapsulating a chivalry 2 instance"""
 
-import win32gui, win32con, win32process, win32api
+import win32gui, win32process, win32api
 from time import sleep
 from . import inputLib
 
@@ -48,15 +48,12 @@ class Chivalry:
     def checkInGameConsoleOpen(self):
         """Returns true or false, indicating if the in-game console is currently open in extended mode.
 
-        TODO: NOTE: this function currenly does not work.
         """
         screenshot = self.getChivScreenshot() #get a screenshot of the chiv game
         width, height = screenshot.size
         screenshot = screenshot.crop((0, height*(47/64)+2, width*0.02, height*(49/64)-2))
         #process to isolate console text, and convert back to RGB
-        #TODO: also try to make mode="L" work
         try:
-            from PIL import Image
             screenshot = screenshot.quantize(colors=256).convert(mode="1").convert(mode="RGB")
         except Exception:
             pass
@@ -72,16 +69,12 @@ class Chivalry:
         """
         hwnd = self.getChivalryWindowHandle()
         self.getFocus(hwnd)
-        #win32gui.SetForegroundWindow(hwnd)
         sleep(0.1)
         if tabDown:
             inputLib.tabDown()
             sleep(0.1)
         
         windowRect = win32gui.GetWindowRect(hwnd)
-        #clientRect = win32gui.GetClientRect(hwnd)
-        #print(windowRect)
-        #print(clientRect)
         try:
             from PIL import ImageGrab
             image = ImageGrab.grab(windowRect)
@@ -109,11 +102,7 @@ class Chivalry:
         #It gets everything up to the horizontal line separating the command line input
         screenshot = screenshot.crop((0, 0, width, height*(47/64)-2))
         #process to isolate console text, and convert back to RGB
-        #TODO: also try to make mode="L" work
         screenshot = screenshot.quantize(colors=256).convert(mode="1").convert(mode="RGB")
-        #screenshot.show() #DEBUG
-        #TODO: improve recognition with custom training
-        #https://ironsoftware.com/csharp/ocr/how-to/ocr-custom-font-training/
         try:
             import pytesseract
             text = pytesseract.image_to_string(screenshot)
@@ -129,12 +118,10 @@ class Chivalry:
             responsibility of the caller to ensure that this string is valid, clean, and interpretable
             before using it.
 
-        TODO: add cleanup here?
 
         NOTE: The in-game console should not be open in extended mode when this function is called.
             It may still work, however, it will be less reliable.
         """
-        #get screenshot
         screenshot = self.getChivScreenshot()
         width, height = screenshot.size
         #crop to location of timer on screen
@@ -151,26 +138,6 @@ class Chivalry:
     
     def getPlayerCount(self):
         return 0
-        #this will eventually return an actual number from the game...
-        #the OCR for this is surprisingly difficult
-        screenshot = self.getChivScreenshot(tabDown=True)
-        width, height = screenshot.size
-        
-        #crop to location of timer on screen
-        screenshot = screenshot.crop((0.47*width, height*0.18, 0.53*width, height*0.22))
-
-        #process and isolate text
-        
-        screenshot = screenshot.quantize(colors=128).convert(mode="RGB")
-
-
-
-        screenshot.show()
-        try:
-            import pytesseract
-            return pytesseract.image_to_string(screenshot)
-        except Exception as e:
-            raise RuntimeError("pytesseract is required for OCR operations but is not installed.") from e
     def getPlayerList(self):
         screenshot = self.getChivScreenshot(tabDown=True)
         width, height = screenshot.size
@@ -217,7 +184,6 @@ class Chivalry:
         screenshot = screenshot.crop((0.3*width, 0.75*height, 0.7*width, 0.9*height))
 
         screenshot = screenshot.quantize(colors=128).convert(mode="1").convert(mode="RGB")
-        #screenshot.show()
         try:
             import pytesseract
             result = pytesseract.image_to_string(screenshot)
@@ -237,7 +203,6 @@ class Chivalry:
         screenshot = screenshot.crop((0.072*width, 0.94*height, 0.13*width, 0.97*height))
 
         screenshot = screenshot.quantize(colors=128).convert(mode="RGB")
-        #screenshot.show()
         try:
             import pytesseract
             result = pytesseract.image_to_string(screenshot)
@@ -269,7 +234,6 @@ class Chivalry:
             for index,s in enumerate(console) 
             if ">>" in s and "<<" in s
         ]
-        index = -1 #sentinel -1 value
         for i, s in reversed(strippedConsole): #searching backwards through all commands run
             if command.replace(" ", "") in s: #if this line is the running of the requested command
                 if i < len(console)-1: #if this is not the last line of the console output
@@ -347,18 +311,6 @@ class Chivalry:
 
     # closeConsole() removed - console auto-closes after Enter
 
-    # def walk(self):
-    #     """Cause the chivalry client to walk forward in-game for several seconds.
-
-    #     NOTE: this function shouldn't really be called, and is mostly here for testing inputs.
-    #         It MAY be useful for tinkering with OCR by moving to a more oportune position.
-        
-    #     """
-    #     hwnd = self.getChivalryWindowHandle()
-    #     self.getFocus(hwnd)
-    #     win32api.keybd_event(0x57, 0x0, 0)
-    #     sleep(4)
-    #     win32api.keybd_event(0x57, 0x0, 0x0002)
 
     def SavePreset(self, slot, payload):
         """Save a preset to a slot. Payload may be:
