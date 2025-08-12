@@ -221,10 +221,13 @@ class ActionForm(QDialog):
         is_ban = (action_name.lower() == "ban")
         self.preset_slots = list(range(0, 5)) if is_ban else list(range(5, 10))
 
-        # Small tip label for hover preview
-        tip_label = QLabel("Tip: hover a preset button to preview its reason" + (" and duration" if is_ban else ""))
-        tip_label.setStyleSheet("color: #888888; font-size: 11px; font-style: italic; margin: 2px;")
-        preset_layout.addWidget(tip_label)
+        # Help icon with tooltip for hover preview
+        tip_icon = QLabel("Tip")
+        tip_icon.setToolTip("You can hover a loading button to preview the saved reason" + (" and duration" if is_ban else ""))
+        tip_icon.setFixedSize(30, 20)
+        tip_icon.setAlignment(Qt.AlignCenter)
+        tip_icon.setStyleSheet("QLabel { color: #888888; font-weight: bold; border: 1px solid #888888; border-radius: 8px; }")
+        preset_layout.addWidget(tip_icon, 0, Qt.AlignRight)
 
         # Load preset buttons (single row of 5 buttons)
         load_layout1 = QHBoxLayout()
@@ -552,9 +555,9 @@ class PlayersWindow(QDialog):
         self.search_bar = QLineEdit()
         self.search_bar.setPlaceholderText("Search by ID or Player Name...")
         self.search_bar.textChanged.connect(self.filter_players)
-        main_layout.addWidget(self.search_bar)
         self.player_list = QListWidget()
         main_layout.addWidget(self.player_list)
+        main_layout.addWidget(self.search_bar)
         self.player_list.itemClicked.connect(self.open_player_actions)
         self.setLayout(main_layout)
 
@@ -642,19 +645,79 @@ class ActionDialog(QDialog):
         self.setModal(True)
         self.setWindowModality(Qt.WindowModal)
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+
         layout = QFormLayout()
         for field in fields:
             line_edit = QLineEdit()
             layout.addRow(field + ":", line_edit)
             self.inputs[field] = line_edit
+
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+        # IMPORTANT: set the layout so the dialog renders its controls
         self.setLayout(layout)
 
     def get_inputs(self):
         return [line_edit.text().strip() for line_edit in self.inputs.values()]
+
+class ConsoleKeyDialog(QDialog):
+    def __init__(self, current_vk: str = "", parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Configure Console Key")
+        self.setModal(True)
+        self.setWindowModality(Qt.WindowModal)
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+        self.resize(420, 180)
+
+        self.captured_vk = None
+
+        layout = QVBoxLayout()
+        instructions = QLabel(
+            "Press the key you use to open the in-game console.\n"
+            "The key code will be saved and used for console operations."
+        )
+        instructions.setWordWrap(True)
+        instructions.setAlignment(Qt.AlignCenter)
+        layout.addWidget(instructions)
+
+        self.status = QLabel("Waiting for key press...")
+        self.status.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.status)
+
+        if current_vk:
+            try:
+                vk_int = int(current_vk)
+                self.status.setText(f"Current configured key: VK {vk_int} (press a key to change)")
+            except Exception:
+                pass
+
+        # Buttons
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.ok_button = buttons.button(QDialogButtonBox.Ok)
+        self.ok_button.setEnabled(False)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+        self.setLayout(layout)
+
+    def keyPressEvent(self, event):
+        try:
+            # Prefer native VK on Windows
+            vk = event.nativeVirtualKey() if hasattr(event, 'nativeVirtualKey') else None
+        except Exception:
+            vk = None
+        if vk is None or vk == 0:
+            # Fallback: use Qt key for common ASCII keys
+            vk = event.key()
+        self.captured_vk = int(vk)
+        self.status.setText(f"Captured key: VK {self.captured_vk}. Click OK to save or press another key.")
+        self.ok_button.setEnabled(True)
+        # Do not call base to avoid beep
+        # super().keyPressEvent(event)
 
 class AdminDashboard(QWidget):
     def __init__(self):
@@ -667,13 +730,16 @@ class AdminDashboard(QWidget):
         self.last_player_count = 0
 
         self.setWindowTitle("Admin Dashboard")
-        self.resize(1000, 500)
+        self.resize(1400, 500)
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(30, 30, 30, 30)
-        main_layout.setSpacing(25)
+        # Reduce outer margins and vertical spacing to fit within 1080p height
+        main_layout.setContentsMargins(24, 16, 24, 16)
+        main_layout.setSpacing(16)
         title = QLabel("Admin Dashboard")
         title.setFont(QFont("Segoe UI", 20, QFont.Bold))
         title.setAlignment(Qt.AlignCenter)
+        # Slightly reduce extra space around title
+        title.setContentsMargins(0, 4, 0, 4)
         main_layout.addWidget(title)
         status_group = QGroupBox("Server Status")
         status_layout = QVBoxLayout()
@@ -715,10 +781,13 @@ class AdminDashboard(QWidget):
         self.admin_save_buttons = []
         self.admin_clear_buttons = []
 
-        # Tip label
-        tip_label_admin = QLabel("Tip: hover a preset button to preview its message")
-        tip_label_admin.setStyleSheet("color: #888888; font-size: 11px; font-style: italic; margin: 2px;")
-        admin_preset_layout.addWidget(tip_label_admin)
+        # Help icon with tooltip
+        tip_icon_admin = QLabel("Tip")
+        tip_icon_admin.setToolTip("You can hover a loading button to preview the saved message")
+        tip_icon_admin.setFixedSize(30, 20)
+        tip_icon_admin.setAlignment(Qt.AlignCenter)
+        tip_icon_admin.setStyleSheet("QLabel { color: #888888; font-weight: bold; border: 1px solid #888888; border-radius: 8px; }")
+        admin_preset_layout.addWidget(tip_icon_admin, 0, Qt.AlignRight)
 
         # Columns for each slot
         admin_columns_row = QHBoxLayout()
@@ -750,7 +819,6 @@ class AdminDashboard(QWidget):
 
         admin_message_layout.addLayout(admin_preset_layout)
         admin_message_group.setLayout(admin_message_layout)
-        main_layout.addWidget(admin_message_group)
 
         # Server Message Section
         server_message_group = QGroupBox("Server Message")
@@ -776,10 +844,13 @@ class AdminDashboard(QWidget):
         self.server_save_buttons = []
         self.server_clear_buttons = []
 
-        # Tip label
-        tip_label_server = QLabel("Tip: hover a preset button to preview its message")
-        tip_label_server.setStyleSheet("color: #888888; font-size: 11px; font-style: italic; margin: 2px;")
-        server_preset_layout.addWidget(tip_label_server)
+        # Help icon with tooltip
+        tip_icon_server = QLabel("Tip")
+        tip_icon_server.setToolTip("You can hover a loading button to preview the saved message")
+        tip_icon_server.setFixedSize(30, 20)
+        tip_icon_server.setAlignment(Qt.AlignCenter)
+        tip_icon_server.setStyleSheet("QLabel { color: #888888; font-weight: bold; border: 1px solid #888888; border-radius: 8px; }")
+        server_preset_layout.addWidget(tip_icon_server, 0, Qt.AlignRight)
 
         # Columns for each slot
         server_columns_row = QHBoxLayout()
@@ -811,33 +882,56 @@ class AdminDashboard(QWidget):
 
         server_message_layout.addLayout(server_preset_layout)
         server_message_group.setLayout(server_message_layout)
-        main_layout.addWidget(server_message_group)
 
-        # Actions Section
-        actions_group = QGroupBox("Actions")
-        actions_layout = QVBoxLayout()
+        # Commands Section
+        commands_group = QGroupBox("Commands")
+        commands_layout = QVBoxLayout()
+
         btn_players = QPushButton("Players List")
         btn_players.clicked.connect(self.open_players_window)
-        actions_layout.addWidget(btn_players)
+        commands_layout.addWidget(btn_players)
+
         btn_add_time = QPushButton("Add Time")
         btn_add_time.clicked.connect(self.open_add_time_dialog)
-        actions_layout.addWidget(btn_add_time)
+        commands_layout.addWidget(btn_add_time)
+
+        # Add Admin and Server Message sections side-by-side under Commands
+        admin_server_row = QHBoxLayout()
+        admin_server_row.setSpacing(12)
+        admin_message_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        server_message_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        admin_server_row.addWidget(admin_message_group, 1)
+        admin_server_row.addWidget(server_message_group, 1)
+        commands_layout.addLayout(admin_server_row)
+
+        commands_group.setLayout(commands_layout)
+        main_layout.addWidget(commands_group)
+
+        # Settings Section
+        settings_group = QGroupBox("Settings")
+        settings_layout = QVBoxLayout()
 
         btn_webhook_config = QPushButton("Configure Discord Webhook")
         btn_webhook_config.clicked.connect(self.configure_discord_webhook)
-        actions_layout.addWidget(btn_webhook_config)
+        settings_layout.addWidget(btn_webhook_config)
 
         btn_discord_id_config = QPushButton("Configure Discord User ID")
         btn_discord_id_config.clicked.connect(self.configure_discord_user_id)
-        actions_layout.addWidget(btn_discord_id_config)
+        settings_layout.addWidget(btn_discord_id_config)
+
+        # Configure Console Key button
+        btn_console_key = QPushButton("Configure Console Key")
+        btn_console_key.clicked.connect(self.configure_console_key)
+        settings_layout.addWidget(btn_console_key)
 
         # Theme toggle button
         self.theme_button = QPushButton("Dark Mode")
         self.theme_button.clicked.connect(self.toggle_theme)
-        actions_layout.addWidget(self.theme_button)
+        settings_layout.addWidget(self.theme_button)
 
-        actions_group.setLayout(actions_layout)
-        main_layout.addWidget(actions_group)
+        settings_group.setLayout(settings_layout)
+        main_layout.addWidget(settings_group)
+
         main_layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
         self.setLayout(main_layout)
 
@@ -1345,6 +1439,20 @@ class AdminDashboard(QWidget):
                 f"Unable to save Discord User ID:\n{str(e)}"
             )
 
+    def configure_console_key(self):
+        """Prompt user to press the key used to open the in-game console and persist its VK code."""
+        # Load current value if any
+        try:
+            current_vk = get_persisted_value('console_vk', "")
+        except Exception:
+            current_vk = ""
+
+        dlg = ConsoleKeyDialog(current_vk=current_vk, parent=self)
+        if dlg.exec_() == QDialog.Accepted and dlg.captured_vk is not None:
+            # Save as integer string to localconfig via persisted storage
+            set_persisted_value('console_vk', str(dlg.captured_vk))
+            QMessageBox.information(self, "Console Key Saved", f"Console key saved as VK {dlg.captured_vk}.")
+
     def toggle_theme(self):
         """Toggle between dark and light theme"""
         app = QApplication.instance()
@@ -1425,6 +1533,7 @@ PERSIST_INDEX = {
     'last_admin_msg': 17,
     'last_server_msg': 18,
     'last_add_time': 19,
+    'console_vk': 26,
 }
 
 

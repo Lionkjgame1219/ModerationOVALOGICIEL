@@ -102,30 +102,51 @@ def sendString(text):
     return success
 
 def getConsoleKey():
-    """Detect the appropriate console key for current keyboard layout."""
+    """Return configured console key if present, else detect by layout (returns a character)."""
     try:
+        # Try to read configured VK from interface persistence (localconfig)
+        import os
+        cfg_path = os.path.join(os.getcwd(), "localconfig")
+        if os.path.exists(cfg_path):
+            try:
+                with open(cfg_path, 'r', encoding='utf-8') as f:
+                    lines = f.read().splitlines()
+                # console_vk stored at index 26 if present
+                if len(lines) > 26 and lines[26].strip():
+                    vk_val = int(lines[26].strip())
+                    # If a VK is configured, we will signal via a sentinel by returning None and using VK path
+                    return None, vk_val
+            except Exception:
+                pass
+
         layout_id = win32api.GetKeyboardLayout(0)
         lang_id = layout_id & 0xFFFF
-        
+
         # French layouts use ²
         french_layouts = [0x040C, 0x080C, 0x0C0C, 0x100C, 0x140C, 0x180C]
-        
+
         if lang_id in french_layouts:
             print(f"[CONSOLE] Detected French layout (0x{lang_id:04X}), using '²'")
-            return '²'
+            return '²', None
         else:
             print(f"[CONSOLE] Detected layout (0x{lang_id:04X}), using '`'")
-            return '`'
-            
+            return '`', None
+
     except Exception as e:
         print(f"[CONSOLE] Layout detection failed: {e}, using '`'")
-        return '`'
+        return '`', None
+
 
 def sendConsoleKey():
-    """Send the appropriate console key for current layout."""
-    console_char = getConsoleKey()
-    print(f"[CONSOLE] Sending console key: '{console_char}'")
-    return sendCharacter(console_char)
+    """Send the appropriate console key. If a VK code was configured, use it; otherwise use layout-detected char."""
+    console_char, configured_vk = getConsoleKey()
+    if configured_vk is not None:
+        print(f"[CONSOLE] Sending configured console VK: 0x{configured_vk:02X}")
+        sendKeyPress(configured_vk)
+        return True
+    else:
+        print(f"[CONSOLE] Sending console key: '{console_char}'")
+        return sendCharacter(console_char)
 
 # Legacy compatibility functions (deprecated - use new functions above)
 def sendLetterPress(letter):
