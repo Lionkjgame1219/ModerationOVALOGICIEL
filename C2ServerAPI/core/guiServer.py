@@ -257,8 +257,15 @@ class Chivalry:
         print(f"[CONSOLESEND] Game window handle: {hwnd}")
         self.getFocus(hwnd)
 
-        # Wait for game to be ready for input after focus
-        sleep(0.3)
+        # Wait only until the window is foreground (up to ~200ms), no fixed delay
+        try:
+            import win32gui
+            for _ in range(40):  # 40 * 5ms = 200ms max
+                if win32gui.GetForegroundWindow() == hwnd:
+                    break
+                sleep(0.005)
+        except Exception:
+            pass  # If check fails, continue anyway
 
         print(f"[CONSOLESEND] Sending command: '{message}'")
         success = inputLib.sendString(message)
@@ -278,15 +285,23 @@ class Chivalry:
         print(f"[OPENCONSOLE] Game window handle: {hwnd}")
         self.getFocus(hwnd)
 
-        # Wait for game to be ready for input after focus
-        sleep(1.0)
+        # Wait only until the window is foreground (up to ~200ms), no fixed delay
+        try:
+            import win32gui
+            for _ in range(40):  # 40 * 5ms = 200ms max
+                if win32gui.GetForegroundWindow() == hwnd:
+                    break
+                sleep(0.005)
+        except Exception:
+            pass
 
         print("[OPENCONSOLE] Sending console key...")
         success = inputLib.sendConsoleKey()
 
         if success:
             print("[OPENCONSOLE] Console opened successfully")
-            sleep(0.2)  # Brief wait for console to be ready
+            # Minimal settling time to ensure input line is ready
+            sleep(0.08)
         else:
             print("[OPENCONSOLE] ERROR: Console opening failed")
 
@@ -305,62 +320,53 @@ class Chivalry:
     #     sleep(4)
     #     win32api.keybd_event(0x57, 0x0, 0x0002)
 
-    def SavePreset(self, slot, reason_text):
-        """Save the kick/ban reason sentence to a preset slot.
+    def SavePreset(self, slot, payload):
+        """Save a preset to a slot. Payload may be:
+        - reason only (string)
+        - "reason|||duration" to include a ban duration
 
         @param slot: The slot to save to. This is a number between 0 and 9.
-        @param reason_text: The reason text to save to the preset slot.
+        @param payload: The reason text or combined reason/duration to save to the preset slot.
         """
         import os
 
         localconfig = "localconfig"
 
-        # Read existing config
-        webhook_primary = "None"
-        webhook_secondary = "None"
-        discord_user_id = "None"
-        presets = {}
-
+        # Read all existing lines (preserve everything beyond the 10 preset slots)
+        lines = []
         if os.path.exists(localconfig):
             try:
                 with open(localconfig, 'r', encoding='utf-8') as f:
-                    lines = f.read().strip().split('\n')
-                    if len(lines) >= 1:
-                        webhook_primary = lines[0]
-                    if len(lines) >= 2:
-                        webhook_secondary = lines[1]
-                    if len(lines) >= 3:
-                        discord_user_id = lines[2]
-                    # Load existing presets from line 4 onwards
-                    if len(lines) >= 4:
-                        for i, line in enumerate(lines[3:]):
-                            if line.strip():
-                                presets[str(i)] = line
+                    lines = f.read().splitlines()
             except Exception:
-                pass
+                lines = []
 
-        # Update the preset
-        presets[str(slot)] = reason_text
+        # Ensure we have at least header (3 lines) + 10 preset slots (indices 3..12)
+        min_len = 13
+        if len(lines) < min_len:
+            lines += [""] * (min_len - len(lines))
 
-        # Write back to file
+        # Update the target preset slot (stored at index 3 + slot)
+        preset_index = 3 + int(slot)
+        # Pad if needed (shouldn't happen due to min_len above, but safe-guard)
+        if len(lines) <= preset_index:
+            lines += [""] * (preset_index + 1 - len(lines))
+        lines[preset_index] = payload if payload is not None else ""
+
+        # Write all lines back, preserving any extra persisted values
         try:
             with open(localconfig, 'w', encoding='utf-8') as f:
-                f.write(f"{webhook_primary}\n")
-                f.write(f"{webhook_secondary}\n")
-                f.write(f"{discord_user_id}\n")
-                # Write presets (slots 0-9)
-                for i in range(10):
-                    preset_text = presets.get(str(i), "")
-                    f.write(f"{preset_text}\n")
+                for line in lines:
+                    f.write(line + "\n")
             return True
         except Exception:
             return False
 
     def LoadPreset(self, slot):
-        """Load the kick/ban reason sentence from a preset slot.
+        """Load the preset payload from a slot.
 
         @param slot: The slot to load from. This is a number between 0 and 9.
-        @returns: The reason text from the preset slot, or None if not found.
+        @returns: The stored payload (string) or None if not found.
         """
         import os
 
@@ -383,7 +389,7 @@ class Chivalry:
     def GetAllPresets(self):
         """Get all saved presets as a dictionary.
 
-        @returns: Dictionary with slot numbers as keys and reason texts as values.
+        @returns: Dictionary with slot numbers as keys and stored payload strings as values.
         """
         import os
 

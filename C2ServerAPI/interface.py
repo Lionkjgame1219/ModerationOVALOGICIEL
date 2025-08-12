@@ -10,10 +10,12 @@ import time
 import os
 import sys
 import win32gui
+import json
+
 
 from core.C2ServerAPIExample import GameChivalry
 from core.guiServer import Chivalry
-import core.wehbooks as wehbooks 
+import core.wehbooks as wehbooks
 
 def check_chivalry_window():
     """Check if Chivalry 2 window is available"""
@@ -85,7 +87,7 @@ class ChivalryWaitingDialog(QDialog):
         button_layout = QHBoxLayout()
 
         # Theme toggle button
-        self.theme_button = QPushButton("🌙 Dark Mode")
+        self.theme_button = QPushButton("Dark Mode")
         self.theme_button.clicked.connect(self.toggle_theme)
         self.theme_button.setMinimumHeight(35)
         # Let global theme handle styling
@@ -138,17 +140,17 @@ class ChivalryWaitingDialog(QDialog):
         self.update()
 
     def update_theme_button(self):
-        """Update theme button text based on current theme"""
+        """Toggle between dark and light theme"""
         is_dark = load_theme_preference()
         if is_dark:
-            self.theme_button.setText("☀️ Light Mode")
+            self.theme_button.setText("Light Mode")
         else:
-            self.theme_button.setText("🌙 Dark Mode")
+            self.theme_button.setText("Dark Mode")
 
     def check_window(self):
 
         if check_chivalry_window():
-            self.status_label.setText("✓ Chivalry 2 found! Starting admin tool...")
+            self.status_label.setText("Chivalry 2 window Detected.")
             self.status_label.setStyleSheet("font-weight: bold; color: green;")
             self.timer.stop()
             QTimer.singleShot(1500, self.accept)  # Wait 1.5 seconds then close
@@ -170,10 +172,14 @@ def parse_player_list_from_clipboard():
     return players
 
 class ActionForm(QDialog):
-    def __init__(self, action_name, player_id, player_name):
-        super().__init__()
+    def __init__(self, action_name, player_id, player_name, parent=None):
+        super().__init__(parent)
         self.setWindowTitle(f"{action_name} Player")
         self.resize(450, 350)
+        # Keep this dialog authoritative over its parent
+        self.setModal(True)
+        self.setWindowModality(Qt.WindowModal)
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
 
         # Try to connect to game
         self.game = None
@@ -193,12 +199,14 @@ class ActionForm(QDialog):
         self.player_name.setReadOnly(True)
         form_layout.addRow("Player ID:", self.player_id_input)
         form_layout.addRow("Player Name:", self.player_name)
-        self.reason_input = QLineEdit()
+        # Load last-used values for convenience
+        default_reason_key = 'last_ban_reason' if action_name.lower() == 'ban' else 'last_kick_reason'
+        self.reason_input = QLineEdit(get_persisted_value(default_reason_key, ""))
         form_layout.addRow("Reason:", self.reason_input)
 
         if action_name.lower() == "ban":
-            self.time_input = QLineEdit()
-            self.time_input.setPlaceholderText("Duration in hours (e.g., 7)")
+            self.time_input = QLineEdit(get_persisted_value('last_ban_duration', ""))
+            self.time_input.setPlaceholderText("Duration in hours")
             form_layout.addRow("Time (hours):", self.time_input)
         else:
             self.time_input = None
@@ -209,43 +217,53 @@ class ActionForm(QDialog):
         preset_group = QGroupBox("Reason Presets")
         preset_layout = QVBoxLayout()
 
-        # Load preset buttons (2 rows of 5 buttons each)
-        load_layout1 = QHBoxLayout()
-        load_layout2 = QHBoxLayout()
+        # Determine preset slots by action type: 0-4 for Ban, 5-9 for Kick
+        is_ban = (action_name.lower() == "ban")
+        self.preset_slots = list(range(0, 5)) if is_ban else list(range(5, 10))
 
+        # Small tip label for hover preview
+        tip_label = QLabel("Tip: hover a preset button to preview its reason" + (" and duration" if is_ban else ""))
+        tip_label.setStyleSheet("color: #888888; font-size: 11px; font-style: italic; margin: 2px;")
+        preset_layout.addWidget(tip_label)
+
+        # Load preset buttons (single row of 5 buttons)
+        load_layout1 = QHBoxLayout()
         self.load_buttons = []
-        for i in range(10):
-            btn = QPushButton(f"Slot {i}")
-            btn.clicked.connect(lambda checked, slot=i: self.load_preset(slot))
+        for idx, slot in enumerate(self.preset_slots):
+            btn = QPushButton(f"Slot {idx}")
+            btn.clicked.connect(lambda checked, s=slot: self.load_preset(s))
             btn.setMaximumWidth(80)
             self.load_buttons.append(btn)
-            if i < 5:
-                load_layout1.addWidget(btn)
-            else:
-                load_layout2.addWidget(btn)
+            load_layout1.addWidget(btn)
 
-        preset_layout.addWidget(QLabel("Load Presets:"))
+        preset_layout.addWidget(QLabel(("Load Presets:" if is_ban else "Load Presets:")))
         preset_layout.addLayout(load_layout1)
-        preset_layout.addLayout(load_layout2)
 
-        # Save preset buttons (2 rows of 5 buttons each)
+        # Overwrite preset buttons (single row of 5 buttons)
         save_layout1 = QHBoxLayout()
-        save_layout2 = QHBoxLayout()
-
         self.save_buttons = []
-        for i in range(10):
-            btn = QPushButton(f"Slot {i}")
-            btn.clicked.connect(lambda checked, slot=i: self.save_preset(slot))
+        for idx, slot in enumerate(self.preset_slots):
+            btn = QPushButton(f"Slot {idx}")
+            btn.clicked.connect(lambda checked, s=slot: self.save_preset(s))
             btn.setMaximumWidth(80)
             self.save_buttons.append(btn)
-            if i < 5:
-                save_layout1.addWidget(btn)
-            else:
-                save_layout2.addWidget(btn)
+            save_layout1.addWidget(btn)
 
-        preset_layout.addWidget(QLabel("Save Presets:"))
+        preset_layout.addWidget(QLabel(("Save / Overwrite Presets:" if is_ban else "Save / Overwrite Presets:")))
         preset_layout.addLayout(save_layout1)
-        preset_layout.addLayout(save_layout2)
+
+        # Clear preset buttons (single row of 5 buttons)
+        clear_layout1 = QHBoxLayout()
+        self.clear_buttons = []
+        for idx, slot in enumerate(self.preset_slots):
+            btn = QPushButton("Clear")
+            btn.clicked.connect(lambda checked, s=slot: self.clear_preset(s))
+            btn.setFixedWidth(80)
+            self.clear_buttons.append(btn)
+            clear_layout1.addWidget(btn)
+
+        preset_layout.addWidget(QLabel(("Clear Presets:" if is_ban else "Clear Presets:")))
+        preset_layout.addLayout(clear_layout1)
 
         preset_group.setLayout(preset_layout)
         main_layout.addWidget(preset_group)
@@ -256,6 +274,13 @@ class ActionForm(QDialog):
         buttons.rejected.connect(self.reject)
         main_layout.addWidget(buttons)
 
+        # Apply persisted values for admin/server/add time inputs in parent dashboard
+        parent = self.parent()
+        if parent and isinstance(parent, AdminDashboard):
+            # Pre-fill admin/server message inputs
+            parent.admin_message_input.setText(get_persisted_value('last_admin_msg', ""))
+            parent.server_message_input.setText(get_persisted_value('last_server_msg', ""))
+
         self.action_name = action_name
         self.setLayout(main_layout)
 
@@ -263,36 +288,52 @@ class ActionForm(QDialog):
         self.update_preset_tooltips()
 
     def load_preset(self, slot):
-        """Load a preset reason into the reason input field"""
+        """Load a preset into the inputs (reason and duration if present)"""
         from core.guiServer import Chivalry
         chiv = Chivalry()
         preset_text = chiv.LoadPreset(slot)
 
         if preset_text:
-            self.reason_input.setText(preset_text)
+            reason_val = preset_text
+            duration_val = None
+            if '|||' in preset_text:
+                reason_val, duration_val = preset_text.split('|||', 1)
+                reason_val = reason_val.strip()
+                duration_val = duration_val.strip()
+            # Fill reason
+            self.reason_input.setText(reason_val)
+            # Fill duration if this is a Ban form and duration is present
+            if self.time_input is not None and duration_val is not None:
+                self.time_input.setText(duration_val)
             QMessageBox.information(self, "Preset Loaded", f"Preset {slot} loaded successfully!")
         else:
             QMessageBox.warning(self, "No Preset", f"No preset found in slot {slot}.")
 
     def save_preset(self, slot):
-        """Save the current reason text to a preset slot"""
+        """Save the current reason (and duration if present) to a preset slot"""
         reason = self.reason_input.text().strip()
         if not reason:
             QMessageBox.warning(self, "Empty Reason", "Please enter a reason before saving to preset.")
             return
+        # Include duration if this is a Ban form
+        preset_payload = reason
+        if self.time_input is not None:
+            duration = self.time_input.text().strip()
+            if duration:
+                preset_payload = f"{reason}|||{duration}"
 
         from core.guiServer import Chivalry
         chiv = Chivalry()
-        success = chiv.SavePreset(slot, reason)
+        success = chiv.SavePreset(slot, preset_payload)
 
         if success:
-            QMessageBox.information(self, "Preset Saved", f"Reason saved to preset {slot} successfully!")
+            QMessageBox.information(self, "Preset Saved", f"Preset saved to slot {slot} successfully!")
             self.update_preset_tooltips()
         else:
             QMessageBox.warning(self, "Save Failed", f"Failed to save preset {slot}.")
 
     def update_preset_tooltips(self):
-        """Update tooltips for load buttons to show preset contents"""
+        """Update tooltips for load buttons to show preset contents (reason and optional duration)"""
         from core.guiServer import Chivalry
         chiv = Chivalry()
         presets = chiv.GetAllPresets()
@@ -300,21 +341,39 @@ class ActionForm(QDialog):
         # Get current theme to use appropriate colors
         is_dark_theme = load_theme_preference()
 
-        for i, btn in enumerate(self.load_buttons):
-            preset_text = presets.get(str(i), "")
+        for idx, btn in enumerate(self.load_buttons):
+            slot = self.preset_slots[idx]
+            preset_text = presets.get(str(slot), "")
             if preset_text:
-                # Truncate long text for tooltip
-                display_text = preset_text[:50] + "..." if len(preset_text) > 50 else preset_text
-                btn.setToolTip(f"Slot {i}: {display_text}")
+                reason_val, duration_val = preset_text.split('|||', 1) if '|||' in preset_text else (preset_text, "")
+                reason_val = reason_val.strip()
+                duration_val = duration_val.strip()
+                # Truncate reason for tooltip
+                display_reason = reason_val[:50] + "..." if len(reason_val) > 50 else reason_val
+                tooltip_text = f"Slot {idx}: {display_reason}"
+                if duration_val:
+                    tooltip_text += f"  |  duration: {duration_val}"
+                btn.setToolTip(tooltip_text)
 
                 # Use theme-appropriate colors for filled slots
                 if is_dark_theme:
-                    btn.setStyleSheet("QPushButton { background-color: #2d5a2d; color: #ffffff; }")  # Dark green for dark theme
+                    btn.setStyleSheet("QPushButton { background-color: #2d5a2d; color: #ffffff; }")
                 else:
-                    btn.setStyleSheet("QPushButton { background-color: #e6ffe6; color: #333333; }")  # Light green for light theme
+                    btn.setStyleSheet("QPushButton { background-color: #e6ffe6; color: #333333; }")
             else:
-                btn.setToolTip(f"Slot {i}: Empty")
-                btn.setStyleSheet("")  # Default style for empty slots
+                btn.setToolTip(f"Slot {idx}: Empty")
+                btn.setStyleSheet("")
+
+    def clear_preset(self, slot):
+        """Clear a preset slot (remove reason and duration)."""
+        from core.guiServer import Chivalry
+        chiv = Chivalry()
+        success = chiv.SavePreset(slot, "")
+        if success:
+            QMessageBox.information(self, "Preset Cleared", f"Preset {slot} cleared successfully!")
+            self.update_preset_tooltips()
+        else:
+            QMessageBox.warning(self, "Clear Failed", f"Failed to clear preset {slot}.")
 
     def perform_action(self):
         reason = self.reason_input.text().strip()
@@ -345,6 +404,9 @@ class ActionForm(QDialog):
 
             # Only send Discord notification if the action was actually executed
             if action_executed:
+                # Persist last-used values for bans
+                set_persisted_value('last_ban_reason', reason)
+                set_persisted_value('last_ban_duration', str(time_hour))
                 wehbooks.MessageForAdmin(player_id, player_name, reason, time_hour, "ban")
         else:
             print(f"[{self.action_name.upper()}] Player ID={player_id}, Reason={reason}")
@@ -390,10 +452,13 @@ class ActionForm(QDialog):
         self.update()
 
 class PlayerActionDialog(QDialog):
-    def __init__(self, player_id, player_name):
-        super().__init__()
+    def __init__(self, player_id, player_name, parent=None):
+        super().__init__(parent)
         self.setWindowTitle(f"Actions for {player_name} (ID: {player_id})")
         self.resize(320, 140)
+        self.setModal(True)
+        self.setWindowModality(Qt.WindowModal)
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
         self.player_id = player_id
         self.player_name = player_name
         layout = QVBoxLayout()
@@ -401,17 +466,17 @@ class PlayerActionDialog(QDialog):
         label.setWordWrap(True)
         label.setAlignment(Qt.AlignCenter)
         layout.addWidget(label)
-        btn_ban = QPushButton("⛔ Ban")
+        btn_ban = QPushButton("Ban")
         btn_ban.setStyleSheet("background-color:#e74c3c; color: white; font-weight: bold;")
         btn_ban.clicked.connect(self.ban_player)
         layout.addWidget(btn_ban)
-        btn_kick = QPushButton("🚪 Kick")
+        btn_kick = QPushButton("Kick")
         btn_kick.setStyleSheet("background-color:#f39c12; color: white; font-weight: bold;")
         btn_kick.clicked.connect(self.kick_player)
         layout.addWidget(btn_kick)
 
         # Player profile button
-        btn_profile = QPushButton("� Chivalry2Stats player profile")
+        btn_profile = QPushButton("Chivalry2Stats player profile")
         btn_profile.setStyleSheet("background-color:#3498db; color: white; font-weight: bold;")
         btn_profile.clicked.connect(self.open_player_profile)
         layout.addWidget(btn_profile)
@@ -419,11 +484,11 @@ class PlayerActionDialog(QDialog):
         self.setLayout(layout)
 
     def ban_player(self):
-        form = ActionForm("Ban", self.player_id, self.player_name)
+        form = ActionForm("Ban", self.player_id, self.player_name, parent=self)
         form.exec_()
 
     def kick_player(self):
-        form = ActionForm("Kick", self.player_id, self.player_name)
+        form = ActionForm("Kick", self.player_id, self.player_name, parent=self)
         form.exec_()
 
     def open_player_profile(self):
@@ -443,10 +508,13 @@ class PlayerActionDialog(QDialog):
             )
 
 class PlayersWindow(QDialog):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Connected Players")
-        self.resize(420, 560)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Players List")
+        self.resize(500, 750)
+        self.setModal(True)
+        self.setWindowModality(Qt.ApplicationModal)
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
 
         # Try to connect to game
         self.game = None
@@ -456,10 +524,10 @@ class PlayersWindow(QDialog):
             print(f"[PLAYERS WINDOW] Could not connect to Chivalry 2: {e}")
         main_layout = QVBoxLayout()
         top_layout = QHBoxLayout()
-        title = QLabel("<h3>Connected Players List:</h3>")
+        title = QLabel("<h3>Players List:</h3>")
         title.setAlignment(Qt.AlignLeft)
         top_layout.addWidget(title)
-        refresh_btn = QPushButton("🔄 Refresh Player List")
+        refresh_btn = QPushButton("Refresh Player List")
         refresh_btn.clicked.connect(self.refresh_player_list)
         refresh_btn.setStyleSheet("""
             QPushButton {
@@ -479,15 +547,10 @@ class PlayersWindow(QDialog):
                 background-color: #1565c0;
             }
         """)
-        top_layout.addWidget(refresh_btn)
-
-        # Warning label about manual refresh
-        warning_label = QLabel("⚠️ Manual refresh only - for now")
-        warning_label.setStyleSheet("color: #ffb74d; font-size: 11px; margin: 5px; font-style: italic; background-color: transparent;")
-        top_layout.addWidget(warning_label)
+        main_layout.addWidget(refresh_btn)
         main_layout.addLayout(top_layout)
         self.search_bar = QLineEdit()
-        self.search_bar.setPlaceholderText("Rechercher par ID ou pseudo...")
+        self.search_bar.setPlaceholderText("Search by ID or Player Name...")
         self.search_bar.textChanged.connect(self.filter_players)
         main_layout.addWidget(self.search_bar)
         self.player_list = QListWidget()
@@ -510,10 +573,41 @@ class PlayersWindow(QDialog):
                 QMessageBox.warning(self, "Game Connection Error", f"Could not refresh player list:\n{str(e)}")
         else:
             QMessageBox.warning(self, "No Game Connection", "Cannot refresh player list - Chivalry 2 not connected.\n\nPlease ensure Chivalry 2 is running and you are connected to a server.")'''
-        
+
     def refresh_player_list(self):
-        self.game.ListPlayers()
-        time.sleep(5.0)
+        """Request list from game and wait for clipboard to update before parsing.
+        Fixes first-run race where clipboard wasn't yet populated.
+        """
+        try:
+            prev_clip = pyperclip.paste()
+        except Exception:
+            prev_clip = None
+
+        # Ask game to populate clipboard with the players list
+        try:
+            if hasattr(self.game, 'ListPlayers'):
+                self.game.ListPlayers()
+            else:
+                QMessageBox.warning(self, "No Game Connection", "Cannot refresh player list - Chivalry 2 not connected.\n\nPlease ensure Chivalry 2 is running and you are connected to a server.")
+                return
+        except Exception as e:
+            QMessageBox.warning(self, "Game Connection Error", f"Could not refresh player list:\n{str(e)}")
+            return
+
+        # Poll clipboard for change for up to 2 seconds (50 Hz)
+        t0 = time.time()
+        while time.time() - t0 < 2.0:
+            try:
+                cur_clip = pyperclip.paste()
+            except Exception:
+                cur_clip = None
+
+            # Change detected and looks like it contains player rows
+            if cur_clip and cur_clip != prev_clip and " - " in cur_clip:
+                break
+            time.sleep(0.05)
+
+        # Parse whatever is currently in the clipboard
         self.players = parse_player_list_from_clipboard()
         self.filtered_players = self.players.copy()
         self.populate_list()
@@ -536,14 +630,18 @@ class PlayersWindow(QDialog):
         if " - " not in text:
             return
         name, pid = text.split(" - ", 1)
-        dialog = PlayerActionDialog(pid, name)
+        dialog = PlayerActionDialog(pid, name, parent=self)
         dialog.exec_()
 
 class ActionDialog(QDialog):
-    def __init__(self, title, fields):
-        super().__init__()
+    def __init__(self, title, fields, parent=None):
+        super().__init__(parent)
         self.setWindowTitle(title)
         self.inputs = {}
+        # Keep this dialog authoritative over its parent
+        self.setModal(True)
+        self.setWindowModality(Qt.WindowModal)
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
         layout = QFormLayout()
         for field in fields:
             line_edit = QLineEdit()
@@ -569,7 +667,7 @@ class AdminDashboard(QWidget):
         self.last_player_count = 0
 
         self.setWindowTitle("Admin Dashboard")
-        self.resize(600, 500)
+        self.resize(1000, 500)
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(30, 30, 30, 30)
         main_layout.setSpacing(25)
@@ -596,47 +694,145 @@ class AdminDashboard(QWidget):
         # Admin Message Section
         admin_message_group = QGroupBox("Admin Message")
         admin_message_layout = QVBoxLayout()
+
+        # Input + Send in one row
+        admin_input_row = QHBoxLayout()
         self.admin_message_input = QLineEdit()
         self.admin_message_input.setPlaceholderText("Type the admin message to send...")
-        admin_message_layout.addWidget(self.admin_message_input)
+        # Pre-fill from persisted cache and persist on edit
+        self.admin_message_input.setText(get_persisted_value('last_admin_msg', ""))
+        self.admin_message_input.editingFinished.connect(lambda: set_persisted_value('last_admin_msg', self.admin_message_input.text().strip()))
+        admin_input_row.addWidget(self.admin_message_input, 1)
         btn_send_admin_message = QPushButton("Send Admin Message")
+        btn_send_admin_message.setMinimumWidth(160)
         btn_send_admin_message.clicked.connect(self.send_admin_message)
-        admin_message_layout.addWidget(btn_send_admin_message)
+        admin_input_row.addWidget(btn_send_admin_message)
+        admin_message_layout.addLayout(admin_input_row)
+
+        # Admin presets: 3 slots displayed as horizontal columns
+        admin_preset_layout = QVBoxLayout()
+        self.admin_load_buttons = []
+        self.admin_save_buttons = []
+        self.admin_clear_buttons = []
+
+        # Tip label
+        tip_label_admin = QLabel("Tip: hover a preset button to preview its message")
+        tip_label_admin.setStyleSheet("color: #888888; font-size: 11px; font-style: italic; margin: 2px;")
+        admin_preset_layout.addWidget(tip_label_admin)
+
+        # Columns for each slot
+        admin_columns_row = QHBoxLayout()
+        for idx in range(ADMIN_PRESET_COUNT):
+            col = QVBoxLayout()
+            col.setSpacing(6)
+            col.addWidget(QLabel(f"Slot {idx}"), 0)
+
+            btn_load = QPushButton("Load")
+            btn_load.clicked.connect(lambda _, s=idx: self.load_admin_preset(s))
+            btn_load.setMinimumWidth(90)
+            self.admin_load_buttons.append(btn_load)
+            col.addWidget(btn_load)
+
+            btn_save = QPushButton("Save / Overwrite")
+            btn_save.clicked.connect(lambda _, s=idx: self.save_admin_preset(s))
+            btn_save.setMinimumWidth(90)
+            self.admin_save_buttons.append(btn_save)
+            col.addWidget(btn_save)
+
+            btn_clear = QPushButton("Clear")
+            btn_clear.clicked.connect(lambda _, s=idx: self.clear_admin_preset(s))
+            btn_clear.setMinimumWidth(90)
+            self.admin_clear_buttons.append(btn_clear)
+            col.addWidget(btn_clear)
+
+            admin_columns_row.addLayout(col, 1)
+        admin_preset_layout.addLayout(admin_columns_row)
+
+        admin_message_layout.addLayout(admin_preset_layout)
         admin_message_group.setLayout(admin_message_layout)
         main_layout.addWidget(admin_message_group)
 
         # Server Message Section
         server_message_group = QGroupBox("Server Message")
         server_message_layout = QVBoxLayout()
+
+        # Input + Send in one row
+        server_input_row = QHBoxLayout()
         self.server_message_input = QLineEdit()
         self.server_message_input.setPlaceholderText("Type the server message to send...")
-        server_message_layout.addWidget(self.server_message_input)
+        # Pre-fill from persisted cache and persist on edit
+        self.server_message_input.setText(get_persisted_value('last_server_msg', ""))
+        self.server_message_input.editingFinished.connect(lambda: set_persisted_value('last_server_msg', self.server_message_input.text().strip()))
+        server_input_row.addWidget(self.server_message_input, 1)
         btn_send_server_message = QPushButton("Send Server Message")
+        btn_send_server_message.setMinimumWidth(160)
         btn_send_server_message.clicked.connect(self.send_server_message)
-        server_message_layout.addWidget(btn_send_server_message)
+        server_input_row.addWidget(btn_send_server_message)
+        server_message_layout.addLayout(server_input_row)
+
+        # Server presets: 3 slots displayed as horizontal columns
+        server_preset_layout = QVBoxLayout()
+        self.server_load_buttons = []
+        self.server_save_buttons = []
+        self.server_clear_buttons = []
+
+        # Tip label
+        tip_label_server = QLabel("Tip: hover a preset button to preview its message")
+        tip_label_server.setStyleSheet("color: #888888; font-size: 11px; font-style: italic; margin: 2px;")
+        server_preset_layout.addWidget(tip_label_server)
+
+        # Columns for each slot
+        server_columns_row = QHBoxLayout()
+        for idx in range(SERVER_PRESET_COUNT):
+            col = QVBoxLayout()
+            col.setSpacing(6)
+            col.addWidget(QLabel(f"Slot {idx}"), 0)
+
+            btn_load = QPushButton("Load")
+            btn_load.clicked.connect(lambda _, s=idx: self.load_server_preset(s))
+            btn_load.setMinimumWidth(90)
+            self.server_load_buttons.append(btn_load)
+            col.addWidget(btn_load)
+
+            btn_save = QPushButton("Save / Overwrite")
+            btn_save.clicked.connect(lambda _, s=idx: self.save_server_preset(s))
+            btn_save.setMinimumWidth(90)
+            self.server_save_buttons.append(btn_save)
+            col.addWidget(btn_save)
+
+            btn_clear = QPushButton("Clear")
+            btn_clear.clicked.connect(lambda _, s=idx: self.clear_server_preset(s))
+            btn_clear.setMinimumWidth(90)
+            self.server_clear_buttons.append(btn_clear)
+            col.addWidget(btn_clear)
+
+            server_columns_row.addLayout(col, 1)
+        server_preset_layout.addLayout(server_columns_row)
+
+        server_message_layout.addLayout(server_preset_layout)
         server_message_group.setLayout(server_message_layout)
         main_layout.addWidget(server_message_group)
 
         # Actions Section
         actions_group = QGroupBox("Actions")
         actions_layout = QVBoxLayout()
-        btn_players = QPushButton("👥 Connected Players")
+        btn_players = QPushButton("Players List")
         btn_players.clicked.connect(self.open_players_window)
         actions_layout.addWidget(btn_players)
-        btn_add_time = QPushButton("⏱️ Add Time")
+        btn_add_time = QPushButton("Add Time")
         btn_add_time.clicked.connect(self.open_add_time_dialog)
         actions_layout.addWidget(btn_add_time)
 
-        btn_webhook_config = QPushButton("🔗 Configure Discord Webhook")
+        btn_webhook_config = QPushButton("Configure Discord Webhook")
         btn_webhook_config.clicked.connect(self.configure_discord_webhook)
         actions_layout.addWidget(btn_webhook_config)
 
-        btn_discord_id_config = QPushButton("👤 Configure Discord User ID")
+        btn_discord_id_config = QPushButton("Configure Discord User ID")
         btn_discord_id_config.clicked.connect(self.configure_discord_user_id)
         actions_layout.addWidget(btn_discord_id_config)
 
         # Theme toggle button
-        self.theme_button = QPushButton("🌙 Dark Mode")
+        self.theme_button = QPushButton("Dark Mode")
         self.theme_button.clicked.connect(self.toggle_theme)
         actions_layout.addWidget(self.theme_button)
 
@@ -656,8 +852,31 @@ class AdminDashboard(QWidget):
         # Update theme button text based on current theme
         self.update_theme_button()
 
+        # Initialize tooltips/colors for admin/server presets
+        self.update_admin_preset_tooltips()
+        self.update_server_preset_tooltips()
+
         # Keep track of player window instance
         self.players_window = None
+
+
+    def center_on_screen(self):
+        """Center the dashboard on the current screen after it is shown."""
+        try:
+            screen = self.screen() or QApplication.primaryScreen()
+            if not screen:
+                return
+            avail = screen.availableGeometry()
+            frame = self.frameGeometry()
+            frame.moveCenter(avail.center())
+            self.move(frame.topLeft())
+        except Exception as e:
+            print(f"[UI] Centering failed: {e}")
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # Center after the widget has a native window and final frame metrics
+        QTimer.singleShot(0, self.center_on_screen)
 
     def check_game_connection(self):
         """Check game and server connection status"""
@@ -688,13 +907,95 @@ class AdminDashboard(QWidget):
         # Update status display
         self.update_connection_status()
 
+    # ---- Admin/Server presets helpers ----
+    def update_admin_preset_tooltips(self):
+        is_dark_theme = load_theme_preference()
+        for idx, btn in enumerate(getattr(self, 'admin_load_buttons', [])):
+            preset_text = get_admin_preset(idx)
+            if preset_text:
+                display = (preset_text[:50] + "...") if len(preset_text) > 50 else preset_text
+                btn.setToolTip(f"Slot {idx}: {display}")
+                if is_dark_theme:
+                    btn.setStyleSheet("QPushButton { background-color: #2d5a2d; color: #ffffff; }")
+                else:
+                    btn.setStyleSheet("QPushButton { background-color: #e6ffe6; color: #333333; }")
+            else:
+                btn.setToolTip(f"Slot {idx}: Empty")
+                btn.setStyleSheet("")
+
+    def update_server_preset_tooltips(self):
+        is_dark_theme = load_theme_preference()
+        for idx, btn in enumerate(getattr(self, 'server_load_buttons', [])):
+            preset_text = get_server_preset(idx)
+            if preset_text:
+                display = (preset_text[:50] + "...") if len(preset_text) > 50 else preset_text
+                btn.setToolTip(f"Slot {idx}: {display}")
+                if is_dark_theme:
+                    btn.setStyleSheet("QPushButton { background-color: #2d5a2d; color: #ffffff; }")
+                else:
+                    btn.setStyleSheet("QPushButton { background-color: #e6ffe6; color: #333333; }")
+            else:
+                btn.setToolTip(f"Slot {idx}: Empty")
+                btn.setStyleSheet("")
+
+    def load_admin_preset(self, slot):
+        text = get_admin_preset(slot)
+        if text:
+            self.admin_message_input.setText(text)
+            QMessageBox.information(self, "Preset Loaded", f"Admin preset {slot} loaded successfully!")
+        else:
+            QMessageBox.warning(self, "No Preset", f"No admin preset found in slot {slot}.")
+
+    def save_admin_preset(self, slot):
+        text = self.admin_message_input.text().strip()
+        if not text:
+            QMessageBox.warning(self, "Empty Message", "Please enter a message before saving to preset.")
+            return
+        set_admin_preset(slot, text)
+        QMessageBox.information(self, "Preset Saved", f"Admin preset saved to slot {slot} successfully!")
+        self.update_admin_preset_tooltips()
+
+    def clear_admin_preset(self, slot):
+        set_admin_preset(slot, "")
+        QMessageBox.information(self, "Preset Cleared", f"Admin preset {slot} cleared successfully!")
+        self.update_admin_preset_tooltips()
+
+    def load_server_preset(self, slot):
+        text = get_server_preset(slot)
+        if text:
+            self.server_message_input.setText(text)
+            QMessageBox.information(self, "Preset Loaded", f"Server preset {slot} loaded successfully!")
+        else:
+            QMessageBox.warning(self, "No Preset", f"No server preset found in slot {slot}.")
+
+    def save_server_preset(self, slot):
+        text = self.server_message_input.text().strip()
+        if not text:
+            QMessageBox.warning(self, "Empty Message", "Please enter a message before saving to preset.")
+            return
+        set_server_preset(slot, text)
+        QMessageBox.information(self, "Preset Saved", f"Server preset saved to slot {slot} successfully!")
+        self.update_server_preset_tooltips()
+
+    def clear_server_preset(self, slot):
+        set_server_preset(slot, "")
+        QMessageBox.information(self, "Preset Cleared", f"Server preset {slot} cleared successfully!")
+        self.update_server_preset_tooltips()
+
+
+        # Note: We don't automatically check server connection to avoid disrupting gameplay
+        # Server connection status will be determined only when user manually refreshes player list
+
+        # Update status display
+        self.update_connection_status()
+
     def update_connection_status(self):
         """Update the connection status display"""
         if self.chivalry_connected:
-            self.status_label.setText("✅ Chivalry 2 Connected")
+            self.status_label.setText("Chivalry 2 Connected")
             self.status_label.setStyleSheet("color: green; font-weight: bold;")
         else:
-            self.status_label.setText("⚠️ Chivalry 2 Not Connected")
+            self.status_label.setText("Chivalry 2 Not Connected")
             self.status_label.setStyleSheet("color: red; font-weight: bold;")
 
 
@@ -704,20 +1005,23 @@ class AdminDashboard(QWidget):
         status = wehbooks.get_webhook_status()
 
         if status['primary_active'] and status['secondary_active']:
-            self.webhook_status_label.setText("🔗 Discord: Primary + Secondary Active")
+            self.webhook_status_label.setText("Discord: Primary + Secondary Active")
             self.webhook_status_label.setStyleSheet("color: green;")
         elif status['primary_active']:
-            self.webhook_status_label.setText("🔗 Discord: Primary Active")
+            self.webhook_status_label.setText("Discord: Primary Active")
             self.webhook_status_label.setStyleSheet("color: green;")
         elif status['secondary_active']:
-            self.webhook_status_label.setText("🔗 Discord: Secondary Active")
+            self.webhook_status_label.setText("Discord: Secondary Active")
             self.webhook_status_label.setStyleSheet("color: green;")
         else:
-            self.webhook_status_label.setText("🔗 Discord: Not Configured")
+            self.webhook_status_label.setText("Discord: Not Configured")
             self.webhook_status_label.setStyleSheet("color: orange;")
 
     def send_admin_message(self):
         msg = self.admin_message_input.text().strip()
+        # Persist last admin message
+        if msg:
+            set_persisted_value('last_admin_msg', msg)
 
         if not msg:
             QMessageBox.warning(self, "Error", "Please enter a message to send.")
@@ -744,6 +1048,9 @@ class AdminDashboard(QWidget):
 
     def send_server_message(self):
         msg = self.server_message_input.text().strip()
+        # Persist last server message
+        if msg:
+            set_persisted_value('last_server_msg', msg)
 
         if not msg:
             QMessageBox.warning(self, "Error", "Please enter a message to send.")
@@ -769,6 +1076,10 @@ class AdminDashboard(QWidget):
         self.server_message_input.clear()
 
     def open_players_window(self):
+        # Pre-fill dashboard fields from persisted values
+        self.admin_message_input.setText(get_persisted_value('last_admin_msg', ""))
+        self.server_message_input.setText(get_persisted_value('last_server_msg', ""))
+
         # Check if player window already exists and is visible
         if self.players_window is not None and self.players_window.isVisible():
             # Window already exists, just bring it to front (no auto-refresh)
@@ -777,7 +1088,7 @@ class AdminDashboard(QWidget):
         else:
             # Create new window or reuse closed one
             if self.players_window is None:
-                self.players_window = PlayersWindow()
+                self.players_window = PlayersWindow(self)
                 # Connect the finished signal to clean up reference when window is closed
                 self.players_window.finished.connect(lambda: setattr(self, 'players_window', None))
 
@@ -788,7 +1099,9 @@ class AdminDashboard(QWidget):
             self.players_window.exec_()
 
     def open_add_time_dialog(self):
-        dialog = ActionDialog("Add Time", ["Time to add (minutes)"])
+        dialog = ActionDialog("Add Time", ["Time to add (minutes)"], parent=self)
+        # Pre-fill last add time value
+        dialog.inputs["Time to add (minutes)"] .setText(get_persisted_value('last_add_time', ""))
         if dialog.exec_() == QDialog.Accepted:
             added_time = dialog.get_inputs()[0]
             print(f" +{added_time}min")
@@ -808,7 +1121,29 @@ class AdminDashboard(QWidget):
 
             # Only send Discord notification if time was actually added to game
             if time_added:
+                # Persist last add time
+                set_persisted_value('last_add_time', str(added_time))
                 wehbooks.MessageForAdmin("N/A", "N/A", f"Added {added_time} minutes", added_time, "time")
+
+
+    def prompt_wide_text(self, title, label, text):
+        dlg = QInputDialog(self)
+        dlg.setWindowTitle(title)
+        dlg.setLabelText(label)
+        dlg.setTextValue(text)
+        dlg.setInputMode(QInputDialog.TextInput)
+        # Make dialog and input wide enough for full webhook URLs
+        dlg.resize(900, 150)
+        try:
+            le = dlg.findChild(QLineEdit)
+            if le is not None:
+                le.setMinimumWidth(820)
+                le.setMinimumHeight(24)
+                le.setCursorPosition(len(text))
+        except Exception:
+            pass
+        ok = dlg.exec_()
+        return dlg.textValue(), ok == QDialog.Accepted
 
     def configure_discord_webhook(self):
         """Allow user to reconfigure Discord webhooks"""
@@ -830,12 +1165,10 @@ class AdminDashboard(QWidget):
                 pass
 
         # Prompt for primary webhook URL
-        primary_url, ok = QInputDialog.getText(
-            self,
+        primary_url, ok = self.prompt_wide_text(
             "Primary Discord Webhook Configuration",
-            "Enter your primary Discord Webhook URL:\n"
-            "(Leave empty to disable Discord notifications)",
-            text=current_primary_url
+            "Enter your primary Discord Webhook URL:\n(Leave empty to disable Discord notifications)",
+            current_primary_url
         )
 
         if not ok:
@@ -854,12 +1187,10 @@ class AdminDashboard(QWidget):
         # Prompt for secondary webhook URL (only if primary is configured)
         secondary_url = ""
         if primary_url:
-            secondary_url, ok2 = QInputDialog.getText(
-                self,
+            secondary_url, ok2 = self.prompt_wide_text(
                 "Secondary Discord Webhook Configuration",
-                "Enter your secondary Discord Webhook URL (optional):\n"
-                "(Leave empty to use only the primary webhook)",
-                text=current_secondary_url
+                "Enter your secondary Discord Webhook URL (optional):\n(Leave empty to use only the primary webhook)",
+                current_secondary_url
             )
 
             if ok2 and secondary_url.strip():
@@ -875,32 +1206,27 @@ class AdminDashboard(QWidget):
             else:
                 secondary_url = ""
 
-        # Save the URLs to file, preserving existing Discord user ID and presets
+        # Save the URLs to file, preserving all other lines in localconfig
         try:
-            # Read existing Discord user ID and presets
-            existing_discord_user_id = "None"
-            existing_presets = []
+            # Read all existing lines
+            lines = []
             if os.path.exists(localconfig):
                 with open(localconfig, 'r', encoding='utf-8') as f:
-                    lines = f.read().strip().split('\n')
-                    # Preserve Discord user ID from line 3
-                    if len(lines) >= 3:
-                        existing_discord_user_id = lines[2]
-                    # Preserve presets from line 4 onwards
-                    if len(lines) > 3:
-                        existing_presets = lines[3:]
-
-            # Write webhooks, Discord user ID, and presets
+                    lines = f.read().splitlines()
+            # Ensure at least 3 header lines and 10 preset lines
+            min_len = 13
+            if len(lines) < min_len:
+                lines += [""] * (min_len - len(lines))
+            # Update header values
+            lines[0] = primary_url if primary_url else 'None'
+            lines[1] = secondary_url if secondary_url else 'None'
+            # Preserve existing Discord user ID in line 2 if present, else keep current content
+            if len(lines) < 3:
+                lines += ["None"] * (3 - len(lines))
+            # Write all lines back
             with open(localconfig, 'w', encoding='utf-8') as f:
-                f.write(f"{primary_url if primary_url else 'None'}\n")
-                f.write(f"{secondary_url if secondary_url else 'None'}\n")
-                f.write(f"{existing_discord_user_id}\n")
-                # Write existing presets or empty lines for 10 slots
-                for i in range(10):
-                    if i < len(existing_presets):
-                        f.write(f"{existing_presets[i]}\n")
-                    else:
-                        f.write("\n")
+                for line in lines:
+                    f.write(line + "\n")
 
             # Reinitialize webhooks
             webhook_initialized = wehbooks.initialize_webhook()
@@ -975,34 +1301,29 @@ class AdminDashboard(QWidget):
 
         discord_user_id = discord_user_id.strip()
 
-        # Save the Discord user ID to file, preserving existing webhooks and presets
+        # Save the Discord user ID to file, preserving all other lines
         try:
-            # Read existing configuration
-            webhook_primary = "None"
-            webhook_secondary = "None"
-            existing_presets = []
+            # Read all existing lines
+            lines = []
             if os.path.exists(localconfig):
                 with open(localconfig, 'r', encoding='utf-8') as f:
-                    lines = f.read().strip().split('\n')
-                    if len(lines) >= 1:
-                        webhook_primary = lines[0]
-                    if len(lines) >= 2:
-                        webhook_secondary = lines[1]
-                    # Preserve presets from line 4 onwards
-                    if len(lines) > 3:
-                        existing_presets = lines[3:]
-
-            # Write configuration with updated Discord user ID
+                    lines = f.read().splitlines()
+            # Ensure at least 3 header lines and 10 preset lines
+            min_len = 13
+            if len(lines) < min_len:
+                lines += [""] * (min_len - len(lines))
+            # Update header values
+            if len(lines) < 1:
+                lines.append('None')
+            if len(lines) < 2:
+                lines.append('None')
+            if len(lines) < 3:
+                lines.append('None')
+            lines[2] = discord_user_id if discord_user_id else 'None'
+            # Write all lines back
             with open(localconfig, 'w', encoding='utf-8') as f:
-                f.write(f"{webhook_primary}\n")
-                f.write(f"{webhook_secondary}\n")
-                f.write(f"{discord_user_id if discord_user_id else 'None'}\n")
-                # Write existing presets or empty lines for 10 slots
-                for i in range(10):
-                    if i < len(existing_presets):
-                        f.write(f"{existing_presets[i]}\n")
-                    else:
-                        f.write("\n")
+                for line in lines:
+                    f.write(line + "\n")
 
             if discord_user_id:
                 QMessageBox.information(
@@ -1046,6 +1367,12 @@ class AdminDashboard(QWidget):
         if hasattr(self, 'update_preset_tooltips'):
             self.update_preset_tooltips()
 
+        # Update colors/tooltips for Admin/Server preset buttons
+        if hasattr(self, 'update_admin_preset_tooltips'):
+            self.update_admin_preset_tooltips()
+        if hasattr(self, 'update_server_preset_tooltips'):
+            self.update_server_preset_tooltips()
+
         # Force refresh of this window's appearance
         self.style().unpolish(self)
         self.style().polish(self)
@@ -1055,9 +1382,111 @@ class AdminDashboard(QWidget):
         """Update theme button text based on current theme"""
         is_dark = load_theme_preference()
         if is_dark:
-            self.theme_button.setText("☀️ Light Mode")
+            self.theme_button.setText("Light Mode")
         else:
-            self.theme_button.setText("🌙 Dark Mode")
+            self.theme_button.setText("Dark Mode")
+
+# ---- Persistent last-used parameters (ban/kick/admin/server/add time) ----
+
+def read_localconfig_lines():
+    try:
+        with open("localconfig", 'r', encoding='utf-8') as f:
+            return f.read().splitlines()
+    except Exception:
+        return []
+
+
+def write_localconfig_lines(lines):
+    try:
+        with open("localconfig", 'w', encoding='utf-8') as f:
+            for line in lines:
+                f.write(line + "\n")
+        return True
+    except Exception:
+        return False
+
+
+# We keep existing layout:
+# 0: primary webhook
+# 1: secondary webhook
+# 2: discord user id
+# 3..12: 10 preset lines
+# 13: theme
+# 14: last ban reason
+# 15: last ban duration
+# 16: last kick reason
+# 17: last admin message
+# 18: last server message
+# 19: last add-time minutes
+PERSIST_INDEX = {
+    'last_ban_reason': 14,
+    'last_ban_duration': 15,
+    'last_kick_reason': 16,
+    'last_admin_msg': 17,
+    'last_server_msg': 18,
+    'last_add_time': 19,
+}
+
+
+def get_persisted_value(key: str, default: str = "") -> str:
+    lines = read_localconfig_lines()
+    idx = PERSIST_INDEX[key]
+    if len(lines) <= idx:
+        return default
+    val = lines[idx]
+    return val if val is not None else default
+
+
+def set_persisted_value(key: str, value: str) -> None:
+    lines = read_localconfig_lines()
+    # ensure list long enough
+    max_idx = max(PERSIST_INDEX.values())
+    if len(lines) <= max_idx:
+        # pad with empty strings
+        lines += [""] * (max_idx + 1 - len(lines))
+    lines[PERSIST_INDEX[key]] = value if value is not None else ""
+    write_localconfig_lines(lines)
+
+
+# ---- Admin/Server message presets (3 each) ----
+ADMIN_PRESET_BASE_INDEX = 20  # lines[20..22]
+SERVER_PRESET_BASE_INDEX = 23  # lines[23..25]
+ADMIN_PRESET_COUNT = 3
+SERVER_PRESET_COUNT = 3
+
+
+def _get_text_preset(base_index: int, slot: int) -> str:
+    lines = read_localconfig_lines()
+    idx = base_index + int(slot)
+    if len(lines) <= idx:
+        return ""
+    return lines[idx]
+
+
+def _set_text_preset(base_index: int, slot: int, value: str) -> None:
+    lines = read_localconfig_lines()
+    idx = base_index + int(slot)
+    if len(lines) <= idx:
+        lines += [""] * (idx + 1 - len(lines))
+    lines[idx] = value if value is not None else ""
+    write_localconfig_lines(lines)
+
+
+def get_admin_preset(slot: int) -> str:
+    return _get_text_preset(ADMIN_PRESET_BASE_INDEX, slot)
+
+
+def set_admin_preset(slot: int, value: str) -> None:
+    _set_text_preset(ADMIN_PRESET_BASE_INDEX, slot, value)
+
+
+def get_server_preset(slot: int) -> str:
+    return _get_text_preset(SERVER_PRESET_BASE_INDEX, slot)
+
+
+def set_server_preset(slot: int, value: str) -> None:
+    _set_text_preset(SERVER_PRESET_BASE_INDEX, slot, value)
+
 
 def load_theme_preference():
     """Load theme preference from localconfig file"""

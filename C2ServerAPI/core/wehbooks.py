@@ -224,7 +224,7 @@ def MessageForAdmin(user_id, username, reason, duration_or_msg, categorie):
     moderator_id = config['discord_user_id'] if config['discord_user_id'] else "Unknown"
 
     embed = Embed(
-        title="🔔 Administrative Action",
+        title="Admin Log Notification",
         color=0xF52D05,
         timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
@@ -233,7 +233,7 @@ def MessageForAdmin(user_id, username, reason, duration_or_msg, categorie):
         embed.description = "A **ban** has been executed"
         embed.add_field(
             name="Information",
-            value=f"\nID: {user_id}\nUsername: {username}\nReason: {reason}\nDuration: {duration_or_msg}h",
+            value=f"\nPlayFabID: {user_id}\nUsername: {username}\nReason: {reason}\nDuration: {duration_or_msg}h",
             inline=False
         )
 
@@ -241,7 +241,7 @@ def MessageForAdmin(user_id, username, reason, duration_or_msg, categorie):
         embed.description = "An **unban** has been executed"
         embed.add_field(
             name="Information",
-            value=f"\nID: {user_id}",
+            value=f"\nPlayFabID: {user_id}",
             inline=False
         )
 
@@ -249,21 +249,9 @@ def MessageForAdmin(user_id, username, reason, duration_or_msg, categorie):
         embed.description = "A **kick** has been executed"
         embed.add_field(
             name="Information",
-            value=f"\nID: {user_id}\nUsername: {username}\nReason: {reason}",
+            value=f"\nPlayFabID: {user_id}\nUsername: {username}\nReason: {reason}",
             inline=False
         )
-
-    elif categorie == "adminsay":
-        embed.description = "An **admin message** has been sent"
-        embed.add_field(name="Message", value=f"```{reason}```", inline=False)
-
-    elif categorie == "serversay":
-        embed.description = "A **server message** has been sent"
-        embed.add_field(name="Message", value=f"```{reason}```", inline=False)
-
-    elif categorie == "time":
-        embed.description = "**Time** has been added to the game"
-        embed.add_field(name="Details", value=f"```txt\nID: {user_id}\nTime added: {duration_or_msg} minutes```", inline=False)
 
     embed.add_field(name="Moderator", value=f"<@{moderator_id}>", inline=False)
     embed.set_footer(text="Admin Interface")
