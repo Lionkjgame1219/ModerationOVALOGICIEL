@@ -20,7 +20,7 @@ import core.wehbooks as wehbooks
 def check_chivalry_window():
     """Check if Chivalry 2 window is available"""
     try:
-        hwnd = win32gui.FindWindow(None, "Chivalry 2  ")  # Note the spaces after the 2
+        hwnd = win32gui.FindWindow(None, "Chivalry 2  ")
         return hwnd != 0
     except Exception:
         return False
@@ -1055,10 +1055,10 @@ class AdminDashboard(QWidget):
     def update_connection_status(self):
         """Update the connection status display"""
         if self.chivalry_connected:
-            self.status_label.setText("Chivalry 2 Connected")
+            self.status_label.setText("Chivalry 2 is running and detected.")
             self.status_label.setStyleSheet("color: green; font-weight: bold;")
         else:
-            self.status_label.setText("Chivalry 2 Not Connected")
+            self.status_label.setText("Chivalry 2 is not running or not detected.")
             self.status_label.setStyleSheet("color: red; font-weight: bold;")
 
 

@@ -6,25 +6,13 @@
 
 **This section is only of interest if you plan to work with the source files directly. If you plan to use the compiled version from the [releases page](https://github.com/Lionkjgame1219/ModerationOVALOGICIEL/releases), you can skip this part.**
 
-Make sure to have all of the required Python libraries. Here is the list of all of pip commands, ready to paste (pip will automatically download any library that is missing) :
+Make sure to have all of the required Python libraries for the GUI (no OCR needed):
 ```
-pip install a2s
-pip install discord.py
-pip install Pillow
 pip install PyQt5
 pip install pyperclip
-pip install pytesseract
 pip install pywin32
-pip install requests
-pip install windows-curses
+pip install discord.py
 ```
-
-If you wish to make your script a compiled executable later :
-```
-pip install pyinstaller
-```
-
-You will also need to manually install [Tesseract-OCR](https://github.com/tesseract-ocr/tesseract/releases), and then add it in your system "**PATH**" variable environment.
 
 Normally, everything should be working from there.
 
@@ -33,9 +21,9 @@ To run the script, you can run this command into a terminal, either using **cmd*
 python interface.py
 ```
 
-If you want to compile the script to a .exe file, here is a template command, also to be ran in your terminal, and from the same location :
+If you want to compile the script to a .exe file (GUI only), run from the C2ServerAPI folder:
 ```
-pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheCompiledProgram] --add-data "core;core" --hidden-import a2s --hidden-import requests --hidden-import windows-curses --hidden-import pywin32 --hidden-import PIL --hidden-import PIL.ImageGrab --hidden-import PIL.ImageDraw --hidden-import PIL.ImageFont --hidden-import pyperclip --hidden-import PyQt5.QtWidgets --hidden-import PyQt5.QtGui --hidden-import PyQt5.QtCore --hidden-import pytesseract --hidden-import=win32gui --hidden-import=win32con --hidden-import=win32process --hidden-import=win32api --hidden-import=discord interface.py
+pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheCompiledProgram] --add-data "core;core" --hidden-import pyperclip --hidden-import PyQt5.QtWidgets --hidden-import PyQt5.QtGui --hidden-import PyQt5.QtCore --hidden-import=discord --hidden-import=win32gui --hidden-import=win32con --hidden-import=win32process --hidden-import=win32api interface.py
 ```
 
 ### First launch
@@ -44,13 +32,11 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
 ***Disclaimer : Due to how Chivalry 2 API is *(inexisting)*, the program is working by directly simulating keyboard pressed into your game to type commands in your console.***
 
-***By using this method, and probably not the most optimised code for this job, the program will sort of "block" your inputs until the command processing is done.***
+***By using this method, the program will sort of "block" your inputs until the command processing is done.***
 
-***It should be pretty quick (between one and 5 seconds at most), but still noticeable.***
+***It should be pretty quick (between one and two seconds at most), but still noticeable.***
 
 ***Sending inputs on your side (pressing keys on your keyboard) will either, do nothing, or just introduce bugs, so please let the program be done with the command processing before trying to do anything in the game.***
-
-***A more reliable system is gonna be implemented in future releases, but for now, that's how it is.***
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -58,9 +44,7 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
   Useful for keeping a per server history of bans, allowing anyone to review the name of the person who did the action, the duration and the reason of a kick / ban, and the PlayFabID, in case you want to undo a ban.
 
-  If you don't have a link, either create one in the server settings (for the server that will be notified), or ask to your discord server admin to create one and give you the link.
-
-  To create a Webhook, you can go to "**Server settings** -> **Integrations** -> **Webhooks** -> **New webhook**".
+  If you don't have a link, either create one in the server settings (for the server that will be notified), and create a Webhook in "**Server settings** -> **Integrations** -> **Webhooks** -> **New webhook**".
 
   Be sure to select the proper channel in which the notifications will be sent to.
 
@@ -68,7 +52,7 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
 - Then, you will be prompted to enter your Discord ID (only if you're using Webhooks). Necessary to let the bot know that **you** did the command. Here's how to find it :
 
-  Get into your discord window, go to "**User settings**", then scroll down to find "**Advanced**", and then, **enable** "**Developer mode**".
+  Get into your discord window, go to "**User settings**", then scroll down to find "**Advanced**", and then, **enable** "**Developer mode*".
 
   With that done, get out of the settings menu, right click on your name **within any chat or server member list**, and click on the last option, which should be something like "**Copy user ID**".
 
@@ -78,17 +62,11 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
 You will now have access to the dashboard. Everything should be pretty straightforward.
 
-- **"Admin Message"** is going to be sending an "adminsay" command, along with the text you provided.
-
-- **"Server Message"** is basically the same as the admin one, but using the "serversay" command instead.
-
-- **"Connected Players"** is going to open up a new window, in which you are gonna have an empty board and a button to refresh the list of all the players connected to the server you are currently playing on.
-
-     The board is gonna be populated after the first list refresh attempt.
+- **"Players List"** is going to open up a new window, in which you are gonna have an empty board and a button to refresh the list of all the players connected to the server you are currently playing on.
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-   This feature can, sometimes, not work at every refreshes.
+   This feature may, sometimes, not work at every refreshes.
    
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -111,32 +89,34 @@ Now, let's get back to the main dashboard.
 - **"Add Time"** is just a button to add time to the map. Note that you can provide a negative value to substract time to the map.
 (e.g. "-10" to substract 10 minutes)
 
+- **"Admin Message"** is going to be sending an "adminsay" command, along with the text you provided.
+
+- **"Server Message"** is basically the same as the admin one, but using the "serversay" command instead.
+
 - **"Configure Discord Webhook"** is here if need to update or remove a webhook link you provided previously. You can also add one if you never provided it.
 
 - **"Configure Discord User ID"** is also made to add, update, or remove your Discord User ID.
+
+- **"Configure Console Key"** is here if you need to change the key used to open the in-game console.
 
 - **"Light / Dark Mode"** is just here for your visual comfort, so if, for some reason, you desire to get flashbanged, all of a sudden, you are free to.
 
    Can also be used to enlighten your bedroom, since Chiv server mods are known to live in darkness and loneliness.
 
-### Additional feature
+### Presets usage
 
-For kick and ban reasons, you can use preset slots to save and load a text. 
+For kicks, bans, admin messages, and server messages, you can use preset slots to save and quickly retrieve sentences.
 
-Let's say that you want to save the sentence "This is a duel server, FFA / RDM is prohibited.".
+Let's imagine you want to save the sentence "This is a duel server, FFA / RDM is prohibited." as a server message preset.
 
-You can type this sentence as the reason of a kick or ban, and press the button "Slot 1" in the "Save Preset" section below the prompts. You have 10 different slots available, which should be more than enough.
+You would type the sentence in the "Server Message" input text box, and then click on the "Save / Overwrite" button in any slot you want. For the sake of the example, let's say you want to save it in slot 0.
 
-If you want to load a preset, then click on the slot number in the "Load Preset" section that contains the text you want to load. 
+Now, whenever you want to send this message again, you can simply click on the "Load" button in the "Slot 0" column, and the message will be automatically filled in the input text box. You can then simply click on the "Send Server Message" button to send the message.
 
-Assuming you saved the sentence used above in the slot 1, you will then want to load the preset in the slot 1 in order to retrieve the text you saved in this slot.
+Same concept applies to the presets used for kicks and bans. Note that ban presets also saves the ban duration, along with the reason.
 
-### Features planned for future releases
+### Features planned for possible future releases
 
 1. Toggleable automated player list refreshes (would also act as an anti-idle bot, bonus feature)
 
-2. Presets for Admin and Server messages.
-
-3. More robust and reliable input simulation for sending commands to the console.
-
-4. ???
+2. ???

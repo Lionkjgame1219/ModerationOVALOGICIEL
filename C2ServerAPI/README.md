@@ -14,11 +14,6 @@ pip install pywin32
 pip install discord.py
 ```
 
-If you wish to make your script a compiled executable later :
-```
-pip install pyinstaller
-```
-
 Normally, everything should be working from there.
 
 To run the script, you can run this command into a terminal, either using **cmd** or **powershell**, **within the "C2ServerAPI" folder**:
@@ -28,7 +23,7 @@ python interface.py
 
 If you want to compile the script to a .exe file (GUI only), run from the C2ServerAPI folder:
 ```
-pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheCompiledProgram] --add-data "core;core" --hidden-import pyperclip --hidden-import PyQt5.QtWidgets --hidden-import PyQt5.QtGui --hidden-import PyQt5.QtCore --hidden-import=win32gui --hidden-import=win32con --hidden-import=win32process --hidden-import=win32api interface.py
+pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheCompiledProgram] --add-data "core;core" --hidden-import pyperclip --hidden-import PyQt5.QtWidgets --hidden-import PyQt5.QtGui --hidden-import PyQt5.QtCore --hidden-import=discord --hidden-import=win32gui --hidden-import=win32con --hidden-import=win32process --hidden-import=win32api interface.py
 ```
 
 ### First launch
@@ -37,13 +32,11 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
 ***Disclaimer : Due to how Chivalry 2 API is *(inexisting)*, the program is working by directly simulating keyboard pressed into your game to type commands in your console.***
 
-***By using this method, and probably not the most optimised code for this job, the program will sort of "block" your inputs until the command processing is done.***
+***By using this method, the program will sort of "block" your inputs until the command processing is done.***
 
-***It should be pretty quick (between one and 5 seconds at most), but still noticeable.***
+***It should be pretty quick (between one and two seconds at most), but still noticeable.***
 
 ***Sending inputs on your side (pressing keys on your keyboard) will either, do nothing, or just introduce bugs, so please let the program be done with the command processing before trying to do anything in the game.***
-
-***A more reliable system is gonna be implemented in future releases, but for now, that's how it is.***
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -73,7 +66,7 @@ You will now have access to the dashboard. Everything should be pretty straightf
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-   This feature can, sometimes, not work at every refreshes.
+   This feature may, sometimes, not work at every refreshes.
    
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -104,7 +97,7 @@ Now, let's get back to the main dashboard.
 
 - **"Configure Discord User ID"** is also made to add, update, or remove your Discord User ID.
 
-- **"Configure Console Key"** is here if you want to change the key used to open the console. By default, it is set to **" ~ " or " ² "**.
+- **"Configure Console Key"** is here if you need to change the key used to open the in-game console.
 
 - **"Light / Dark Mode"** is just here for your visual comfort, so if, for some reason, you desire to get flashbanged, all of a sudden, you are free to.
 
@@ -112,19 +105,15 @@ Now, let's get back to the main dashboard.
 
 ### Presets usage
 
-For kicks, bans, admin messages, and server messages, you can use preset slots to save and load a text (and a duration in case of a ban). 
+For kicks, bans, admin messages, and server messages, you can use preset slots to save and quickly retrieve sentences.
 
-Let's say that you want to save the sentence "This is a duel server, FFA / RDM is prohibited." as a server message.
+Let's imagine you want to save the sentence "This is a duel server, FFA / RDM is prohibited." as a server message preset.
 
-You can type this sentence in the text box of the section, and press the button "Save / Overwrite" in the slot 0 column below. 
+You would type the sentence in the "Server Message" input text box, and then click on the "Save / Overwrite" button in any slot you want. For the sake of the example, let's say you want to save it in slot 0.
 
-If you want to load a preset, then simply click on the "Load" button in the same column slot number that contains the text you want to load. 
+Now, whenever you want to send this message again, you can simply click on the "Load" button in the "Slot 0" column, and the message will be automatically filled in the input text box. You can then simply click on the "Send Server Message" button to send the message.
 
-In our case, you will want to load the slot 0.
-
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-You have 5 different slots available for bans, 5 others for kicks, 3 for admin messages, and another 3 for server messages.
+Same concept applies to the presets used for kicks and bans. Note that ban presets also saves the ban duration, along with the reason.
 
 ### Features planned for possible future releases
 

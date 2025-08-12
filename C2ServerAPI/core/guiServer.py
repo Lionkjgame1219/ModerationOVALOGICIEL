@@ -1,6 +1,5 @@
 """Provides a class encapsulating a chivalry 2 instance"""
 
-# Lazy-import OCR/screenshot libs inside methods to avoid hard dependency for GUI usage
 import win32gui, win32con, win32process, win32api
 from time import sleep
 from . import inputLib
