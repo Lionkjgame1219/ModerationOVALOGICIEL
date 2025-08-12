@@ -1,7 +1,6 @@
 """Provides a class encapsulating a chivalry 2 instance"""
 
-from PIL import ImageGrab, Image, ImageDraw, ImageFont
-import pytesseract
+# Lazy-import OCR/screenshot libs inside methods to avoid hard dependency for GUI usage
 import win32gui, win32con, win32process, win32api
 from time import sleep
 from . import inputLib
@@ -57,9 +56,17 @@ class Chivalry:
         screenshot = screenshot.crop((0, height*(47/64)+2, width*0.02, height*(49/64)-2))
         #process to isolate console text, and convert back to RGB
         #TODO: also try to make mode="L" work
-        screenshot = screenshot.quantize(colors=256).convert(mode="1").convert(mode="RGB")
-        screenshot.show() #DEBUG
-        print(pytesseract.image_to_string(screenshot))
+        try:
+            from PIL import Image
+            screenshot = screenshot.quantize(colors=256).convert(mode="1").convert(mode="RGB")
+        except Exception:
+            pass
+        # OCR only if pytesseract is available
+        try:
+            import pytesseract
+            print(pytesseract.image_to_string(screenshot))
+        except Exception:
+            print("[OCR] pytesseract not available; skipping OCR in checkInGameConsoleOpen")
         
     def getChivScreenshot(self, tabDown=False):
         """Returns a PIL image of the entire chivalry 2 window, as it appears on-screen to a human user.
@@ -76,7 +83,11 @@ class Chivalry:
         #clientRect = win32gui.GetClientRect(hwnd)
         #print(windowRect)
         #print(clientRect)
-        image = ImageGrab.grab(windowRect)
+        try:
+            from PIL import ImageGrab
+            image = ImageGrab.grab(windowRect)
+        except Exception as e:
+            raise RuntimeError("Pillow (PIL) is required for screenshot operations but is not installed.") from e
         if tabDown:
             inputLib.tabUp()
             sleep(0.1)
@@ -104,7 +115,11 @@ class Chivalry:
         #screenshot.show() #DEBUG
         #TODO: improve recognition with custom training
         #https://ironsoftware.com/csharp/ocr/how-to/ocr-custom-font-training/
-        text = pytesseract.image_to_string(screenshot)
+        try:
+            import pytesseract
+            text = pytesseract.image_to_string(screenshot)
+        except Exception as e:
+            raise RuntimeError("pytesseract is required for OCR operations but is not installed.") from e
         #strip empty lines and return them
         return [s for s in text.splitlines() if s]
 
@@ -129,7 +144,11 @@ class Chivalry:
         #process and isolate text
 
         screenshot = screenshot.quantize(colors=128).convert(mode="RGB")
-        return pytesseract.image_to_string(screenshot)
+        try:
+            import pytesseract
+            return pytesseract.image_to_string(screenshot)
+        except Exception as e:
+            raise RuntimeError("pytesseract is required for OCR operations but is not installed.") from e
     
     def getPlayerCount(self):
         return 0
@@ -145,10 +164,14 @@ class Chivalry:
         
         screenshot = screenshot.quantize(colors=128).convert(mode="RGB")
 
-        
+
 
         screenshot.show()
-        return pytesseract.image_to_string(screenshot)
+        try:
+            import pytesseract
+            return pytesseract.image_to_string(screenshot)
+        except Exception as e:
+            raise RuntimeError("pytesseract is required for OCR operations but is not installed.") from e
     def getPlayerList(self):
         screenshot = self.getChivScreenshot(tabDown=True)
         width, height = screenshot.size
@@ -167,9 +190,13 @@ class Chivalry:
         player_list_img = player_list_img.point(lambda x: 0 if x < 128 else 255, '1')  # binarisation
         
         # player_list_img.show()  # pour debug
-        
+
         # OCR
-        text = pytesseract.image_to_string(player_list_img)
+        try:
+            import pytesseract
+            text = pytesseract.image_to_string(player_list_img)
+        except Exception as e:
+            raise RuntimeError("pytesseract is required for OCR operations but is not installed.") from e
         
         # Nettoyage du texte et découpage en lignes
         lines = text.splitlines()
@@ -192,7 +219,11 @@ class Chivalry:
 
         screenshot = screenshot.quantize(colors=128).convert(mode="1").convert(mode="RGB")
         #screenshot.show()
-        result = pytesseract.image_to_string(screenshot)
+        try:
+            import pytesseract
+            result = pytesseract.image_to_string(screenshot)
+        except Exception as e:
+            raise RuntimeError("pytesseract is required for OCR operations but is not installed.") from e
         if "GAME END" in result or "VICTOR" in result:
             return True
         else:
@@ -208,7 +239,11 @@ class Chivalry:
 
         screenshot = screenshot.quantize(colors=128).convert(mode="RGB")
         #screenshot.show()
-        result = pytesseract.image_to_string(screenshot)
+        try:
+            import pytesseract
+            result = pytesseract.image_to_string(screenshot)
+        except Exception as e:
+            raise RuntimeError("pytesseract is required for OCR operations but is not installed.") from e
         #print(result)
         if "EXIT GAME" in result:
             return True
@@ -266,6 +301,12 @@ class Chivalry:
                 sleep(0.005)
         except Exception:
             pass  # If check fails, continue anyway
+
+        # Ensure input line is clean to avoid command concatenation
+        try:
+            inputLib.clearInputLine()
+        except Exception:
+            pass
 
         print(f"[CONSOLESEND] Sending command: '{message}'")
         success = inputLib.sendString(message)

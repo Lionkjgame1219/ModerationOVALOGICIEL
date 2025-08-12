@@ -10,6 +10,36 @@ KEY_PRESS_DURATION = 0.01      # Time between key down and key up (was 0.05)
 KEY_SEQUENCE_DELAY = 0.005     # Delay between individual key presses (was 0.02)
 COMMAND_COMPLETION_DELAY = 0.0 # Delay after typing complete command (was 0.1)
 
+# Small helper to send Ctrl+<key> combos
+def sendCtrlCombo(vk_code):
+    try:
+        win32api.keybd_event(win32con.VK_CONTROL, 0, 0)
+        sleep(KEY_PRESS_DURATION / 2)
+        win32api.keybd_event(vk_code, 0, 0)
+        sleep(KEY_PRESS_DURATION)
+        win32api.keybd_event(vk_code, 0, win32con.KEYEVENTF_KEYUP)
+        sleep(KEY_PRESS_DURATION / 2)
+        win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP)
+        sleep(KEY_SEQUENCE_DELAY)
+        return True
+    except Exception as e:
+        print(f"[INPUT] ERROR sending Ctrl+VK 0x{vk_code:02X}: {e}")
+        return False
+
+def clearInputLine():
+    """Clear the current console input line by selecting all and deleting.
+
+    Safe to call even if the line is empty.
+    """
+    # Ctrl+A to select all
+    sendCtrlCombo(0x41)  # 'A'
+    # Backspace to clear selection/content
+    sendKeyPress(win32con.VK_BACK)
+    # A couple extra backspaces just in case
+    sendKeyPress(win32con.VK_BACK)
+    sendKeyPress(win32con.VK_BACK)
+
+
 def sendKeyPress(vk_code):
     """Send a single key press with reliable timing.
 

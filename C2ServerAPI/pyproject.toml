@@ -10,8 +10,10 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.13"
-requests = "^2.31.0"
-windows-curses = "^2.3.1"
+PyQt5 = "*"
+pyperclip = "*"
+pywin32 = "*"
+"discord.py" = "*"
 
 [tool.poetry.group.dev.dependencies]
 pyinstaller = "^5.13.0"

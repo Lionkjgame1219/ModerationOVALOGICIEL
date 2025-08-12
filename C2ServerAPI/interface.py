@@ -399,11 +399,8 @@ class ActionForm(QDialog):
                 try:
                     self.game.banbyid(player_id, time_hour, reason)
                     action_executed = True
-                    #QMessageBox.information(self, self.action_name, f"{self.action_name} executed for player {player_id}.\nReason: {reason}\nTime: {time_hour} hours")
                 except Exception as e:
-                    QMessageBox.warning(self, "Game Connection Error", f"Could not execute ban command:\n{str(e)}\n\nNo Discord notification will be sent.")
-            else:
-                QMessageBox.information(self, self.action_name, f"{self.action_name} not executed - Chivalry 2 not connected.\nReason: {reason}\nTime: {time_hour} hours\n\nNo Discord notification sent.")
+                    QMessageBox.warning(self, "Game Connection Error", f"Could not execute ban command:\n{str(e)}")
 
             # Only send Discord notification if the action was actually executed
             if action_executed:
@@ -420,11 +417,8 @@ class ActionForm(QDialog):
                 try:
                     self.game.kickbyid(player_id, reason)
                     action_executed = True
-                    #QMessageBox.information(self, self.action_name, f"{self.action_name} executed for player {player_id}.\nReason: {reason}")
                 except Exception as e:
-                    QMessageBox.warning(self, "Game Connection Error", f"Could not execute kick command:\n{str(e)}\n\nNo Discord notification will be sent.")
-            else:
-                QMessageBox.information(self, self.action_name, f"{self.action_name} not executed - Chivalry 2 not connected.\nReason: {reason}\n\nNo Discord notification sent.")
+                    QMessageBox.warning(self, "Game Connection Error", f"Could not execute kick command:\n{str(e)}")
 
             # Only send Discord notification if the action was actually executed
             if action_executed:
@@ -561,26 +555,8 @@ class PlayersWindow(QDialog):
         self.player_list.itemClicked.connect(self.open_player_actions)
         self.setLayout(main_layout)
 
-
-
-    '''def refresh_player_list(self):
-        if hasattr(self.game, 'ListPlayers'):
-            try:
-                self.game.ListPlayers()
-                # ListPlayers handles timing internally (console auto-closes), minimal delay here
-                time.sleep(0.1)
-                self.players = parse_player_list_from_clipboard()
-                self.filtered_players = self.players.copy()
-                self.populate_list()
-            except Exception as e:
-                QMessageBox.warning(self, "Game Connection Error", f"Could not refresh player list:\n{str(e)}")
-        else:
-            QMessageBox.warning(self, "No Game Connection", "Cannot refresh player list - Chivalry 2 not connected.\n\nPlease ensure Chivalry 2 is running and you are connected to a server.")'''
-
     def refresh_player_list(self):
-        """Request list from game and wait for clipboard to update before parsing.
-        Fixes first-run race where clipboard wasn't yet populated.
-        """
+
         try:
             prev_clip = pyperclip.paste()
         except Exception:
@@ -591,7 +567,7 @@ class PlayersWindow(QDialog):
             if hasattr(self.game, 'ListPlayers'):
                 self.game.ListPlayers()
             else:
-                QMessageBox.warning(self, "No Game Connection", "Cannot refresh player list - Chivalry 2 not connected.\n\nPlease ensure Chivalry 2 is running and you are connected to a server.")
+                QMessageBox.warning(self, "No Game Connection", "Cannot refresh player list - Chivalry 2 not connected.\n\nPlease ensure Chivalry 2 is running.")
                 return
         except Exception as e:
             QMessageBox.warning(self, "Game Connection Error", f"Could not refresh player list:\n{str(e)}")
@@ -641,7 +617,6 @@ class ActionDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.inputs = {}
-        # Keep this dialog authoritative over its parent
         self.setModal(True)
         self.setWindowModality(Qt.WindowModal)
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
@@ -732,13 +707,11 @@ class AdminDashboard(QWidget):
         self.setWindowTitle("Admin Dashboard")
         self.resize(1400, 500)
         main_layout = QVBoxLayout()
-        # Reduce outer margins and vertical spacing to fit within 1080p height
         main_layout.setContentsMargins(24, 16, 24, 16)
         main_layout.setSpacing(16)
         title = QLabel("Admin Dashboard")
         title.setFont(QFont("Segoe UI", 20, QFont.Bold))
         title.setAlignment(Qt.AlignCenter)
-        # Slightly reduce extra space around title
         title.setContentsMargins(0, 4, 0, 4)
         main_layout.addWidget(title)
         status_group = QGroupBox("Server Status")
@@ -775,7 +748,6 @@ class AdminDashboard(QWidget):
         admin_input_row.addWidget(btn_send_admin_message)
         admin_message_layout.addLayout(admin_input_row)
 
-        # Admin presets: 3 slots displayed as horizontal columns
         admin_preset_layout = QVBoxLayout()
         self.admin_load_buttons = []
         self.admin_save_buttons = []
@@ -838,7 +810,6 @@ class AdminDashboard(QWidget):
         server_input_row.addWidget(btn_send_server_message)
         server_message_layout.addLayout(server_input_row)
 
-        # Server presets: 3 slots displayed as horizontal columns
         server_preset_layout = QVBoxLayout()
         self.server_load_buttons = []
         self.server_save_buttons = []
@@ -895,7 +866,6 @@ class AdminDashboard(QWidget):
         btn_add_time.clicked.connect(self.open_add_time_dialog)
         commands_layout.addWidget(btn_add_time)
 
-        # Add Admin and Server Message sections side-by-side under Commands
         admin_server_row = QHBoxLayout()
         admin_server_row.setSpacing(12)
         admin_message_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
@@ -955,7 +925,6 @@ class AdminDashboard(QWidget):
 
 
     def center_on_screen(self):
-        """Center the dashboard on the current screen after it is shown."""
         try:
             screen = self.screen() or QApplication.primaryScreen()
             if not screen:
@@ -1128,15 +1097,8 @@ class AdminDashboard(QWidget):
             try:
                 self.game.AdminSay(msg)
                 message_sent = True
-                #QMessageBox.information(self, "Message Sent", "Admin message sent successfully to game and Discord!")
             except Exception as e:
-                QMessageBox.warning(self, "Game Error", f"Failed to send message to game:\n{str(e)}\n\nNo Discord notification sent.")
-        else:
-            QMessageBox.information(self, "Message Not Sent", "Admin message not sent - Chivalry 2 not connected.\n\nNo Discord notification sent.")
-
-        # Only send Discord notification if the message was actually sent to game
-        if message_sent:
-            wehbooks.MessageForAdmin("N/A", "N/A", msg, None, "adminsay")
+                QMessageBox.warning(self, "Game Error", f"Failed to send message to game:\n{str(e)}")
 
         self.admin_message_input.clear()
 
@@ -1157,15 +1119,8 @@ class AdminDashboard(QWidget):
             try:
                 self.game.ServerSay(msg)
                 message_sent = True
-                #QMessageBox.information(self, "Message Sent", "Server message sent successfully to game and Discord!")
             except Exception as e:
-                QMessageBox.warning(self, "Game Error", f"Failed to send message to game:\n{str(e)}\n\nNo Discord notification sent.")
-        else:
-            QMessageBox.information(self, "Message Not Sent", "Server message not sent - Chivalry 2 not connected.\n\nNo Discord notification sent.")
-
-        # Only send Discord notification if the message was actually sent to game
-        if message_sent:
-            wehbooks.MessageForAdmin("N/A", "N/A", msg, None, "serversay")
+                QMessageBox.warning(self, "Game Error", f"Failed to send message to game:\n{str(e)}")
 
         self.server_message_input.clear()
 
@@ -1206,19 +1161,8 @@ class AdminDashboard(QWidget):
                 try:
                     self.game.AddTime(added_time)
                     time_added = True
-                    # Delay the success message to avoid stealing focus from game during console operations
-                    QTimer.singleShot(2000, lambda: QMessageBox.information(self, "Time Added", f"Successfully added {added_time} minutes to the game!"))
                 except Exception as e:
-                    QMessageBox.warning(self, "Game Error", f"Failed to add time to game:\n{str(e)}\n\nNo Discord notification sent.")
-            else:
-                QMessageBox.information(self, "Time Not Added", f"Time not added - Chivalry 2 not connected.\n\nNo Discord notification sent.")
-
-            # Only send Discord notification if time was actually added to game
-            if time_added:
-                # Persist last add time
-                set_persisted_value('last_add_time', str(added_time))
-                wehbooks.MessageForAdmin("N/A", "N/A", f"Added {added_time} minutes", added_time, "time")
-
+                    QMessageBox.warning(self, "Game Error", f"Failed to add time to game:\n{str(e)}")
 
     def prompt_wide_text(self, title, label, text):
         dlg = QInputDialog(self)
@@ -1348,7 +1292,7 @@ class AdminDashboard(QWidget):
                         self,
                         "Configuration Error",
                         "Unable to initialize Discord webhook(s).\n"
-                        "Please check that the URL(s) are correct."
+                        "Please check that the URL(s) are correct and valid (active) links."
                     )
             else:
                 QMessageBox.information(

@@ -6,25 +6,18 @@
 
 **This section is only of interest if you plan to work with the source files directly. If you plan to use the compiled version from the [releases page](https://github.com/Lionkjgame1219/ModerationOVALOGICIEL/releases), you can skip this part.**
 
-Make sure to have all of the required Python libraries. Here is the list of all of pip commands, ready to paste (pip will automatically download any library that is missing) :
+Make sure to have all of the required Python libraries for the GUI (no OCR needed):
 ```
-pip install a2s
-pip install discord.py
-pip install Pillow
 pip install PyQt5
 pip install pyperclip
-pip install pytesseract
 pip install pywin32
-pip install requests
-pip install windows-curses
+pip install discord.py
 ```
 
 If you wish to make your script a compiled executable later :
 ```
 pip install pyinstaller
 ```
-
-You will also need to manually install [Tesseract-OCR](https://github.com/tesseract-ocr/tesseract/releases), and then add it in your system "**PATH**" variable environment.
 
 Normally, everything should be working from there.
 
@@ -33,9 +26,9 @@ To run the script, you can run this command into a terminal, either using **cmd*
 python interface.py
 ```
 
-If you want to compile the script to a .exe file, here is a template command, also to be ran in your terminal, and from the same location :
+If you want to compile the script to a .exe file (GUI only), run from the C2ServerAPI folder:
 ```
-pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheCompiledProgram] --add-data "core;core" --hidden-import a2s --hidden-import requests --hidden-import windows-curses --hidden-import pywin32 --hidden-import PIL --hidden-import PIL.ImageGrab --hidden-import PIL.ImageDraw --hidden-import PIL.ImageFont --hidden-import pyperclip --hidden-import PyQt5.QtWidgets --hidden-import PyQt5.QtGui --hidden-import PyQt5.QtCore --hidden-import pytesseract --hidden-import=win32gui --hidden-import=win32con --hidden-import=win32process --hidden-import=win32api --hidden-import=discord interface.py
+pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheCompiledProgram] --add-data "core;core" --hidden-import pyperclip --hidden-import PyQt5.QtWidgets --hidden-import PyQt5.QtGui --hidden-import PyQt5.QtCore --hidden-import=win32gui --hidden-import=win32con --hidden-import=win32process --hidden-import=win32api interface.py
 ```
 
 ### First launch
@@ -76,13 +69,7 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
 You will now have access to the dashboard. Everything should be pretty straightforward.
 
-- **"Admin Message"** is going to be sending an "adminsay" command, along with the text you provided.
-
-- **"Server Message"** is basically the same as the admin one, but using the "serversay" command instead.
-
-- **"Connected Players"** is going to open up a new window, in which you are gonna have an empty board and a button to refresh the list of all the players connected to the server you are currently playing on.
-
-     The board is gonna be populated after the first list refresh attempt.
+- **"Players List"** is going to open up a new window, in which you are gonna have an empty board and a button to refresh the list of all the players connected to the server you are currently playing on.
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -109,32 +96,38 @@ Now, let's get back to the main dashboard.
 - **"Add Time"** is just a button to add time to the map. Note that you can provide a negative value to substract time to the map.
 (e.g. "-10" to substract 10 minutes)
 
+- **"Admin Message"** is going to be sending an "adminsay" command, along with the text you provided.
+
+- **"Server Message"** is basically the same as the admin one, but using the "serversay" command instead.
+
 - **"Configure Discord Webhook"** is here if need to update or remove a webhook link you provided previously. You can also add one if you never provided it.
 
 - **"Configure Discord User ID"** is also made to add, update, or remove your Discord User ID.
+
+- **"Configure Console Key"** is here if you want to change the key used to open the console. By default, it is set to **" ~ " or " ² "**.
 
 - **"Light / Dark Mode"** is just here for your visual comfort, so if, for some reason, you desire to get flashbanged, all of a sudden, you are free to.
 
    Can also be used to enlighten your bedroom, since Chiv server mods are known to live in darkness and loneliness.
 
-### Additional feature
+### Presets usage
 
-For kick and ban reasons, you can use preset slots to save and load a text. 
+For kicks, bans, admin messages, and server messages, you can use preset slots to save and load a text (and a duration in case of a ban). 
 
-Let's say that you want to save the sentence "This is a duel server, FFA / RDM is prohibited.".
+Let's say that you want to save the sentence "This is a duel server, FFA / RDM is prohibited." as a server message.
 
-You can type this sentence as the reason of a kick or ban, and press the button "Slot 1" in the "Save Preset" section below the prompts. You have 10 different slots available, which should be more than enough.
+You can type this sentence in the text box of the section, and press the button "Save / Overwrite" in the slot 0 column below. 
 
-If you want to load a preset, then click on the slot number in the "Load Preset" section that contains the text you want to load. 
+If you want to load a preset, then simply click on the "Load" button in the same column slot number that contains the text you want to load. 
 
-Assuming you saved the sentence used above in the slot 1, you will then want to load the preset in the slot 1 in order to retrieve the text you saved in this slot.
+In our case, you will want to load the slot 0.
 
-### Features planned for future releases
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+You have 5 different slots available for bans, 5 others for kicks, 3 for admin messages, and another 3 for server messages.
+
+### Features planned for possible future releases
 
 1. Toggleable automated player list refreshes (would also act as an anti-idle bot, bonus feature)
 
-2. Presets for Admin and Server messages.
-
-3. More robust and reliable input simulation for sending commands to the console.
-
-4. ???
+2. ???
