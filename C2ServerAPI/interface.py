@@ -1246,10 +1246,10 @@ class AdminDashboard(QWidget):
                 QMessageBox.warning(self, "Game Error", f"Failed to send message to game:\n{str(e)}")
 
         # Only send Discord notification if the message was actually sent to game
-        if message_sent:
-            wehbooks.MessageForAdmin("N/A", "N/A", msg, None, "adminsay")
+        #if message_sent:
+            # wehbooks.MessageForAdmin("N/A", "N/A", msg, None, "adminsay")
 
-        self.admin_message_input.clear()
+        #self.admin_message_input.clear()
 
     def send_server_message(self):
         msg = self.server_message_input.text().strip()
@@ -1272,10 +1272,10 @@ class AdminDashboard(QWidget):
                 QMessageBox.warning(self, "Game Error", f"Failed to send message to game:\n{str(e)}")
 
         # Only send Discord notification if the message was actually sent to game
-        if message_sent:
-            wehbooks.MessageForAdmin("N/A", "N/A", msg, None, "serversay")
+        #if message_sent:
+            # wehbooks.MessageForAdmin("N/A", "N/A", msg, None, "serversay")
 
-        self.server_message_input.clear()
+        # self.server_message_input.clear()
 
     def open_players_window(self):
         # Pre-fill dashboard fields from persisted values
@@ -1323,7 +1323,7 @@ class AdminDashboard(QWidget):
             if time_added:
                 # Persist last add time
                 set_persisted_value('last_add_time', str(added_time))
-                wehbooks.MessageForAdmin("N/A", "N/A", f"Added {added_time} minutes", added_time, "time")
+                #wehbooks.MessageForAdmin("N/A", "N/A", f"Added {added_time} minutes", added_time, "time")
 
 
     def prompt_wide_text(self, title, label, text):

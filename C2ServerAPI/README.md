@@ -1,12 +1,12 @@
 # Chivalry 2 GUI Server Moderation Panel
 
-## **This program is only meant to work on Windows systems for now, future Linux support _might_ come someday**_, or not..._
+## **This program currently only works on Windows systems, future Linux support _might_ come someday**_, or not..._
 
 ### Setup
 
 **This section is only of interest if you plan to work with the source files directly. If you plan to use the compiled version from the [releases page](https://github.com/Lionkjgame1219/ModerationOVALOGICIEL/releases), you can skip this part.**
 
-Make sure to have all of the required Python libraries for the GUI (no OCR needed):
+Make sure to have all of the required Python libraries for the script to run:
 ```
 pip install PyQt5
 pip install pyperclip
@@ -16,7 +16,7 @@ pip install discord.py
 
 Normally, everything should be working from there.
 
-To run the script, you can run this command into a terminal, either using **cmd** or **powershell**, **within the "C2ServerAPI" folder**:
+To run the script, you can run this command in a terminal, either using **cmd** or **powershell**, **within the "C2ServerAPI" folder**:
 ```
 python interface.py
 ```
@@ -28,7 +28,7 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
 ### First launch
 
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
 ***Disclaimer : Due to how Chivalry 2 API is *(inexisting)*, the program is working by directly simulating keyboard pressed into your game to type commands in your console.***
 
@@ -36,17 +36,17 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
 ***It should be pretty quick (between one and two seconds at most), but still noticeable.***
 
-***Sending inputs on your side (pressing keys on your keyboard) will either, do nothing, or just introduce bugs, so please let the program be done with the command processing before trying to do anything in the game.***
+***Sending inputs on your side (pressing keys on your keyboard) will either, do nothing, or just introduce bugs, so please let the program be done with the command processing before trying to do anything in the game. Moving your mouse is fine though, and it would give you an indication of when is the command processing completed.***
 
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
 - As soon as you will open up the program, you will be prompted to add a Discord Webhook link, so that the script can send a message in the channel of your Webhook for every action you made.
 
-  Useful for keeping a per server history of bans, allowing anyone to review the name of the person who did the action, the duration and the reason of a kick / ban, and the PlayFabID, in case you want to undo a ban.
+  Useful for keeping a per server history of bans, allowing anyone to review the name of the person who performed the action, the duration, and the reason of a kick / ban, and the PlayFabID, in case you want to undo a ban.
 
   If you don't have a link, either create one in the server settings (for the server that will be notified), and create a Webhook in "**Server settings** -> **Integrations** -> **Webhooks** -> **New webhook**".
 
-  Be sure to select the proper channel in which the notifications will be sent to.
+  Be sure to select the proper channel to send the notification to.
 
   Note that it is possible to set a second Webhook link. Can be used to send the same notifications to another server, in case you want to have a discord server with a ban history shared to another clan or in-game server owner.
 
@@ -64,15 +64,15 @@ You will now have access to the dashboard. Everything should be pretty straightf
 
 - **"Players List"** is going to open up a new window, in which you are gonna have an empty board and a button to refresh the list of all the players connected to the server you are currently playing on.
 
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
    This feature may, sometimes, not work at every refreshes.
    
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
   After the board is populated, you can click on a player to have access to three buttons :
 
-   1. One for banning him, which will ask you for every informations needed for the ban.
+   1. One for banning him, which will ask you for every information needed for the ban.
 
       Required informations are :
 
@@ -87,7 +87,7 @@ You will now have access to the dashboard. Everything should be pretty straightf
 Now, let's get back to the main dashboard.
 
 - **"Add Time"** is just a button to add time to the map. Note that you can provide a negative value to substract time to the map.
-(e.g. "-10" to substract 10 minutes)
+(e.g. "-10" to subtract 10 minutes)
 
 - **"Admin Message"** is going to be sending an "adminsay" command, along with the text you provided.
 
@@ -101,7 +101,7 @@ Now, let's get back to the main dashboard.
 
 - **"Light / Dark Mode"** is just here for your visual comfort, so if, for some reason, you desire to get flashbanged, all of a sudden, you are free to.
 
-   Can also be used to enlighten your bedroom, since Chiv server mods are known to live in darkness and loneliness.
+   Can also be used to light up your bedroom, since Chiv server mods are known to live in darkness and loneliness.
 
 ### Presets usage
 
@@ -113,7 +113,7 @@ You would type the sentence in the "Server Message" input text box, and then cli
 
 Now, whenever you want to send this message again, you can simply click on the "Load" button in the "Slot 0" column, and the message will be automatically filled in the input text box. You can then simply click on the "Send Server Message" button to send the message.
 
-Same concept applies to the presets used for kicks and bans. Note that ban presets also saves the ban duration, along with the reason.
+Same concept applies to the presets used for kicks and bans. Note that ban presets also save the ban duration, along with the reason.
 
 ### Features planned for possible future releases
 
