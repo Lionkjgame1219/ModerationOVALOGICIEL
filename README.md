@@ -30,7 +30,7 @@ pyinstaller --onefile --noconsole --icon=[PathToA".ico"Image] --name=[NameOfTheC
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-***Disclaimer : Due to how Chivalry 2 API is *(inexisting)*, the program is working by directly simulating keyboard pressed into your game to type commands in your console.***
+***Disclaimer : Due to how Chivalry 2 API is *(inexisting)*, the program is working by directly simulating keyboard presses into your game to type commands in your console.***
 
 ***By using this method, the program will sort of "block" your inputs until the command processing is done.***
 
