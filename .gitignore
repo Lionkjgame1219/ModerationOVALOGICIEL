@@ -1,0 +1,8 @@
+/C2ServerAPI/.vs
+/C2ServerAPI/core/__pycache__
+/C2ServerAPI/build
+/C2ServerAPI/__pycache__
+/C2ServerAPI/dist
+C2ServerAPI/RegisterUnchainedServer.errorlog.txt
+C2ServerAPI/localconfig
+C2ServerAPI/AdminDashboard.spec

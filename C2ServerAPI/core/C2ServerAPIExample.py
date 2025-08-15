@@ -9,31 +9,27 @@ class GameChivalry():
         self.game = Chivalry()
 
     def ListPlayers(self):
+        from time import sleep
         self.game.openConsole()
         self.game.consoleSend("listplayers")
-        self.game.closeConsole()
+        sleep(0.5)
 
     def banbyid(self, id, time, reason):
         self.game.openConsole()
-        self.game.consoleSend(f'banbyid {id} {time} "{reason}"')
-        self.game.closeConsole()
+        self.game.consoleSend(f'banbyid {id} {time} {reason}. {time} hours ban.')
 
     def kickbyid(self, id, reason):
         self.game.openConsole()
-        self.game.consoleSend(f'kickbyid {id} "{reason}"')
-        self.game.closeConsole()
+        self.game.consoleSend(f'kickbyid {id} {reason}')
 
     def AddTime(self, time):
         self.game.openConsole()
         self.game.consoleSend(f'tbsaddstagetime {time}')
-        self.game.closeConsole()
 
     def AdminSay(self, text):
         self.game.openConsole()
-        self.game.consoleSend(f'adminsay "{text}"')
-        self.game.closeConsole()
-    
+        self.game.consoleSend(f'adminsay {text}')
+
     def ServerSay(self, text):
         self.game.openConsole()
-        self.game.consoleSend(f'serversay \"{text}\"')
-        self.game.closeConsole()
+        self.game.consoleSend(f'serversay {text}')

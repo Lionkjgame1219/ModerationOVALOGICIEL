@@ -1,105 +1,152 @@
-"""Provides several functions for low-level input to the chivalry window. These functions provide varying levels
-    of abstraction to how input is sent to the chivalry window. It is recommended to use sendLetterPress()"""
+"""Clean, reliable input system for Chivalry 2 console operations.
+Completely refactored for reliability and layout independence."""
 
 from time import sleep
 import win32api, win32con
 
-KEY_SLEEP_DURATION = 0.005
+# Timing constants - tuned for speed while maintaining reliability
+# Note: These values were conservative before; testing shows the game accepts much faster sequences.
+KEY_PRESS_DURATION = 0.01      # Time between key down and key up
+KEY_SEQUENCE_DELAY = 0.005     # Delay between individual key presses
+COMMAND_COMPLETION_DELAY = 0.0 # Delay after typing complete command
 
-def sendKeyPress(code):
-    """Send the events corresponding to a quick press and release of a given keycode. 
-        See https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
-        for more information on keycodes
-    
-    @param code: an int representing the keycode to press and release
+def sendKeyPress(vk_code):
+    """Send a single key press with reliable timing.
+
+    @param vk_code: Virtual key code to press
     """
-    sleep(KEY_SLEEP_DURATION)
-    win32api.keybd_event(code, 0x0, 0x0001)
-    sleep(KEY_SLEEP_DURATION)
-    win32api.keybd_event(code, 0x0, 0x0002)
-    sleep(KEY_SLEEP_DURATION)
 
-def sendShiftedKeyPress(letter):
-    """Send the events corresponding to a quick press and release of a given keycode with the shift key pressed. 
-        See https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
-        for more information on keycodes
-    
-    @param code: an int representing the keycode to press and release
+    # Key down
+    win32api.keybd_event(vk_code, 0, 0)
+    sleep(KEY_PRESS_DURATION)
+
+    # Key up
+    win32api.keybd_event(vk_code, 0, win32con.KEYEVENTF_KEYUP)
+    sleep(KEY_SEQUENCE_DELAY)
+
+def sendShiftedKeyPress(vk_code):
+    """Send a key press with shift modifier.
+
+    @param vk_code: Virtual key code to press with shift
     """
-    sleep(KEY_SLEEP_DURATION)
-    win32api.keybd_event(win32con.VK_LSHIFT, 0x0, 0x0001)
-    win32api.keybd_event(win32con.VK_RSHIFT, 0x0, 0x0001)
-    sendKeyPress(letter)
-    win32api.keybd_event(win32con.VK_LSHIFT, 0x0, 0x0002)
-    win32api.keybd_event(win32con.VK_RSHIFT, 0x0, 0x0002)
-    sleep(KEY_SLEEP_DURATION)
 
-def sendLetterPress(letter):
-    """Send the keypresses required to type a specific letter or character. The shift
-        key will be pressed as needed.
+    # Shift down
+    win32api.keybd_event(win32con.VK_LSHIFT, 0, 0)
+    sleep(KEY_PRESS_DURATION / 2)
 
-    NOTE: not all characters are implemented. Only alphanumeric and
-        -_+=,.!?
-        are implemented.
+    # Key down
+    win32api.keybd_event(vk_code, 0, 0)
+    sleep(KEY_PRESS_DURATION)
 
-    @param letter: The letter that should be typed. (As if they user entered it on the keyboard)
+    # Key up
+    win32api.keybd_event(vk_code, 0, win32con.KEYEVENTF_KEYUP)
+    sleep(KEY_PRESS_DURATION / 2)
+
+    # Shift up
+    win32api.keybd_event(win32con.VK_LSHIFT, 0, win32con.KEYEVENTF_KEYUP)
+    sleep(KEY_SEQUENCE_DELAY)
+
+def sendCharacter(char):
+    """Send a single character using layout-aware mapping.
+
+    @param char: Single character to send
     """
-    sleep(KEY_SLEEP_DURATION)
-    if letter.isalpha() or letter.isnumeric() or letter == ' ':
-        if letter.isupper():
-            sendShiftedKeyPress(ord(letter.upper()))
+
+    try:
+        # Use VkKeyScan for layout-independent character mapping
+        vk_result = win32api.VkKeyScan(char)
+
+        if vk_result == -1:
+            print(f"[INPUT] ERROR: Character '{char}' not found on current layout")
+            return False
+
+        vk_code = vk_result & 0xFF
+        shift_state = (vk_result >> 8) & 0xFF
+
+
+        if shift_state & 1:  # Shift required
+            sendShiftedKeyPress(vk_code)
         else:
-            sendKeyPress(ord(letter.upper()))
-    elif letter == '-':
-        sendKeyPress(0xBD) #VK_OEM_MINUS
-    elif letter == '_':
-        sendShiftedKeyPress(0xBD) #VK_OEM_MINUS
-    elif letter == '+':
-        sendShiftedKeyPress(0xBB) #VK_OEM_PLUS
-    elif letter == '=':\
-        sendKeyPress(0xBB) #VK_OEM_PLUS
-    elif letter == ',':
-        sendKeyPress(0xBC) #VK_OEM_COMMA
-    elif letter == '.':
-        sendKeyPress(0xBE) #VK_OEM_PERIOD
-    elif letter == '!':
-        sendShiftedKeyPress(ord('1'))
-    elif letter == '?':
-        sendShiftedKeyPress(0xBF) #VK_OEM_2 (/?)
-    elif letter == '`':
-        sendKeyPress(0xC0) #backtick
+            sendKeyPress(vk_code)
+
+        return True
+
+    except Exception as e:
+        print(f"[INPUT] ERROR sending character '{char}': {e}")
+        return False
+
+def sendString(text):
+    """Send a string of characters.
+
+    @param text: String to type
+    """
+
+    success = True
+    for char in text:
+        if not sendCharacter(char):
+            success = False
+
+    # Send Enter key to execute command immediately
+    sendKeyPress(win32con.VK_RETURN)
+
+    # No extra wait by default; caller handles any necessary settling
+    if COMMAND_COMPLETION_DELAY > 0:
+        sleep(COMMAND_COMPLETION_DELAY)
+
+    return success
+
+def getConsoleKey():
+    """Return configured console key if present, else detect by layout (returns a character)."""
+    try:
+        # Try to read configured VK from interface persistence (localconfig)
+        import os
+        cfg_path = os.path.join(os.getcwd(), "localconfig")
+        if os.path.exists(cfg_path):
+            try:
+                with open(cfg_path, 'r', encoding='utf-8') as f:
+                    lines = f.read().splitlines()
+                # console_vk stored at index 26 if present
+                if len(lines) > 26 and lines[26].strip():
+                    vk_val = int(lines[26].strip())
+                    # If a VK is configured, we will signal via a sentinel by returning None and using VK path
+                    return None, vk_val
+            except Exception:
+                pass
+
+        layout_id = win32api.GetKeyboardLayout(0)
+        lang_id = layout_id & 0xFFFF
+
+        # French layouts use ²
+        french_layouts = [0x040C, 0x080C, 0x0C0C, 0x100C, 0x140C, 0x180C]
+
+        if lang_id in french_layouts:
+            print(f"[CONSOLE] Detected French layout (0x{lang_id:04X}), using '²'")
+            return '²', None
+        else:
+            print(f"[CONSOLE] Detected layout (0x{lang_id:04X}), using '`'")
+            return '`', None
+
+    except Exception as e:
+        print(f"[CONSOLE] Layout detection failed: {e}, using '`'")
+        return '`', None
+
+
+def sendConsoleKey():
+    """Send the appropriate console key. If a VK code was configured, use it; otherwise use layout-detected char."""
+    console_char, configured_vk = getConsoleKey()
+    if configured_vk is not None:
+        print(f"[CONSOLE] Sending configured console VK: 0x{configured_vk:02X}")
+        sendKeyPress(configured_vk)
+        return True
     else:
-        print("Unable to send key '" + letter + "'")
-        return
-    sleep(KEY_SLEEP_DURATION)
+        print(f"[CONSOLE] Sending console key: '{console_char}'")
+        return sendCharacter(console_char)
+
+# Legacy compatibility functions (deprecated - use new functions above)
+def sendLetterPress(letter):
+    """Legacy function - use sendCharacter() instead."""
+    return sendCharacter(letter)
 
 def typeString(string):
-    """Send keypresses required to type out the contents of the given string
-
-    Newlines are allowed. The enter key will be pressed for each newline character, and will always be
-        pressed at least once per function call (I.E. It will be pressed even if the string contains
-        no newline characters)
-
-    The contents of this string follow the same restrictions as those provided by the sendLetterPress() function.
-
-    @param string: the string whose contents should be converted to keypresses (as if typed by the user on the keyboard)
-    """
-    for line in string.splitlines():
-        for char in line:
-            sendLetterPress(char)
-        sendKeyPress(win32con.VK_RETURN)
-
-def tabDown():
-    """Press down the tab key.
-
-    The tab key will be held until the tabUp() function is called, or something else sends the tab up event.
-    (the user can do this by pressing tab themselves)
-    """
-    win32api.keybd_event(win32con.VK_TAB, 0x0, 0x0001)
-
-def tabUp():
-    """Release the tab key.
-
-    This function should only be called sometime after a call to tabDown().
-    """
-    win32api.keybd_event(win32con.VK_TAB, 0x0, 0x0002)
+    """Legacy function - use sendString() instead.""" 
+    return sendString(string)
