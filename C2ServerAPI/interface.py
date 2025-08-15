@@ -3,11 +3,12 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QDialog,
     QFormLayout, QLineEdit, QDialogButtonBox, QMessageBox, QListWidget, QHBoxLayout, QGroupBox, QSpacerItem, QSizePolicy, QInputDialog, QProgressBar
 )
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QIntValidator
 from PyQt5.QtCore import Qt, QTimer, QAbstractNativeEventFilter, QAbstractEventDispatcher
 from PyQt5.QtCore import QObject, QEvent
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QToolTip
+from PyQt5.QtWidgets import QGridLayout
 
 import pyperclip
 import time
@@ -1072,14 +1073,30 @@ class AdminDashboard(QWidget):
         commands_group = QGroupBox("Commands")
         commands_layout = QVBoxLayout()
 
+        # Row of general actions
+        actions_row = QHBoxLayout()
         btn_players = QPushButton("Players List")
         btn_players.clicked.connect(self.open_players_window)
-        commands_layout.addWidget(btn_players)
+        actions_row.addWidget(btn_players)
 
         btn_add_time = QPushButton("Add Time")
         btn_add_time.clicked.connect(self.open_add_time_dialog)
-        commands_layout.addWidget(btn_add_time)
+        actions_row.addWidget(btn_add_time)
 
+        commands_layout.addLayout(actions_row)
+
+        # Arbitration subgroup
+        arb_group = QGroupBox("Arbitration")
+        arb_layout = QVBoxLayout()
+
+        btn_first_to = QPushButton("Match Arbitration (First To)")
+        btn_first_to.clicked.connect(self.open_first_to_window)
+        arb_layout.addWidget(btn_first_to)
+
+        arb_group.setLayout(arb_layout)
+        commands_layout.addWidget(arb_group)
+
+        # Keep Admin/Server preset panels under Commands
         admin_server_row = QHBoxLayout()
         admin_server_row.setSpacing(12)
         admin_message_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
@@ -1136,7 +1153,7 @@ class AdminDashboard(QWidget):
 
         # Keep track of player window instance
         self.players_window = None
-
+        self.first_to_window = None
 
     def center_on_screen(self):
         try:
@@ -1275,8 +1292,6 @@ class AdminDashboard(QWidget):
             self.status_label.setText("Chivalry 2 Not Connected")
             self.status_label.setStyleSheet("color: red; font-weight: bold;")
 
-
-
     def update_webhook_status(self):
         """Update the webhook status display"""
         status = wehbooks.get_webhook_status()
@@ -1395,6 +1410,18 @@ class AdminDashboard(QWidget):
                 set_persisted_value('last_add_time', str(added_time))
                 #wehbooks.MessageForAdmin("N/A", "N/A", f"Added {added_time} minutes", added_time, "time")
 
+    def open_first_to_window(self):
+        if self.first_to_window is not None and self.first_to_window.isVisible():
+            self.first_to_window.raise_()
+            self.first_to_window.activateWindow()
+            return
+        self.first_to_window = FirstToScoreboardWindow(self)
+        self.first_to_window.setAttribute(Qt.WA_DeleteOnClose, True)
+        self.first_to_window.finished.connect(lambda: setattr(self, 'first_to_window', None))
+        self.first_to_window.show()
+        self.first_to_window.raise_()
+        self.first_to_window.activateWindow()
+        self.first_to_window.exec_()
 
     def prompt_wide_text(self, title, label, text):
         dlg = QInputDialog(self)
@@ -1668,6 +1695,268 @@ class AdminDashboard(QWidget):
             self.theme_button.setText("Light Mode")
         else:
             self.theme_button.setText("Dark Mode")
+
+class FirstToScoreboardWindow(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setModal(True)
+        self.setWindowModality(Qt.ApplicationModal)
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+        self.setWindowTitle("Match Arbitration (First To)")
+        self.resize(1100, 700)
+        self.setSizeGripEnabled(True)
+
+        # State
+        self.game = None
+        self.chivalry_connected = False
+        self.p1_score = 0
+        self.p2_score = 0
+
+        main = QVBoxLayout(self)
+        main.setContentsMargins(20, 16, 20, 16)
+        main.setSpacing(12)
+
+        # Title
+        ttl = QLabel("Match Arbitration (First To)")
+        ttl.setFont(QFont("Segoe UI", 18, QFont.Bold))
+        ttl.setAlignment(Qt.AlignCenter)
+        main.addWidget(ttl)
+
+        # Match settings
+        settings = QGroupBox("Match Settings")
+        settings_l = QFormLayout()
+        settings_l.setLabelAlignment(Qt.AlignRight)
+        settings_l.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
+        settings_l.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+
+        self.rounds_input = QLineEdit()
+        self.rounds_input.setPlaceholderText("e.g. 5")
+        self.rounds_input.setValidator(QIntValidator(1, 999, self))
+        settings_l.addRow("Rounds to win:", self.rounds_input)
+
+        self.start_msg_input = QLineEdit()
+        self.start_msg_input.setPlaceholderText("e.g. Duel starting now!")
+        settings_l.addRow("Start message:", self.start_msg_input)
+
+        self.win_msg_input = QLineEdit()
+        self.win_msg_input.setPlaceholderText("e.g. Congratulations to the winner! And GG to the both of you.")
+        settings_l.addRow("End message:", self.win_msg_input)
+
+        settings.setLayout(settings_l)
+        settings.layout().setContentsMargins(12, 8, 12, 8)
+        main.addWidget(settings)
+
+        # Broadcast
+        broadcast = QGroupBox("Broadcast")
+        b_l = QVBoxLayout()
+        b_l.setContentsMargins(12, 8, 12, 8)
+
+        tag_row = QHBoxLayout()
+        tag_row.addWidget(QLabel("Tag prefix (optional):"))
+        self.broadcast_tag_input = QLineEdit()
+        self.broadcast_tag_input.setPlaceholderText("Tournament")
+        tip_icon_tag = QLabel("Tip")
+        tip_icon_tag.setToolTip("Brackets are added automatically")
+        tip_icon_tag.setFixedSize(30, 20)
+        tip_icon_tag.setAlignment(Qt.AlignCenter)
+        tip_icon_tag.setStyleSheet("QLabel { color: #888888; font-weight: bold; border: 1px solid #888888; border-radius: 8px; }")
+        tag_row.addWidget(tip_icon_tag, 0, Qt.AlignRight)
+        tag_row.addWidget(self.broadcast_tag_input, 1)
+        b_l.addLayout(tag_row)
+
+        self.announce_start_btn = QPushButton("Announce the start of the match")
+        self.announce_start_btn.setMinimumHeight(40)
+        self.announce_start_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.announce_start_btn.clicked.connect(self.announce_start)
+        b_l.addWidget(self.announce_start_btn)
+
+        broadcast.setLayout(b_l)
+        main.addWidget(broadcast)
+
+        # Players
+        players_grid = QGridLayout()
+        players_grid.setColumnStretch(0, 1)
+        players_grid.setColumnStretch(1, 1)
+
+        def build_player(label_text: str):
+            box = QGroupBox(label_text)
+            v = QVBoxLayout(); v.setContentsMargins(12, 8, 12, 8)
+            name_row = QHBoxLayout()
+            name_row.addWidget(QLabel("Name:"))
+            name_edit = QLineEdit(); name_edit.setPlaceholderText(label_text)
+            name_row.addWidget(name_edit, 1)
+            v.addLayout(name_row)
+
+            btn_row = QHBoxLayout()
+            add = QPushButton("Add 1 Point"); add.setMinimumHeight(40)
+            rem = QPushButton("Remove 1 Point"); rem.setMinimumHeight(40)
+            btn_row.addWidget(add); btn_row.addWidget(rem)
+            v.addLayout(btn_row)
+
+            box.setLayout(v)
+            return box, name_edit, add, rem
+
+        p1_box, self.player1_input, self.add_p1_btn, self.remove_p1_btn = build_player("Player 1")
+        p2_box, self.player2_input, self.add_p2_btn, self.remove_p2_btn = build_player("Player 2")
+        self.player1_input.textChanged.connect(self.update_scoreboard_label)
+        self.player2_input.textChanged.connect(self.update_scoreboard_label)
+        self.add_p1_btn.clicked.connect(lambda: self.adjust_score(1, +1))
+        self.remove_p1_btn.clicked.connect(lambda: self.adjust_score(1, -1))
+        self.add_p2_btn.clicked.connect(lambda: self.adjust_score(2, +1))
+        self.remove_p2_btn.clicked.connect(lambda: self.adjust_score(2, -1))
+
+        players_grid.addWidget(p1_box, 0, 0)
+        players_grid.addWidget(p2_box, 0, 1)
+        main.addLayout(players_grid)
+
+        # scoreboard line fills space
+        self.scoreboard_label = QLabel()
+        self.scoreboard_label.setAlignment(Qt.AlignCenter)
+        self.scoreboard_label.setFont(QFont("Segoe UI", 64, QFont.DemiBold))
+        self.scoreboard_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        main.addWidget(self.scoreboard_label, 1)
+
+        # bottom actions
+        bottom = QHBoxLayout()
+        bottom.setStretch(1,1)
+        self.reset_score_btn = QPushButton("Reset score")
+        self.reset_score_btn.setMinimumHeight(36)
+        self.reset_score_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.reset_score_btn.clicked.connect(self.reset_score)
+        self.reset_board_btn = QPushButton("Reset board")
+        self.reset_board_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.reset_board_btn.setMinimumHeight(36)
+        self.reset_board_btn.clicked.connect(self.reset_board)
+        bottom.addWidget(self.reset_score_btn)
+        bottom.addWidget(self.reset_board_btn)
+        main.addLayout(bottom)
+
+        self.update_scoreboard_label()
+        self.center_on_screen()
+
+    def center_on_screen(self):
+        try:
+            screen = self.screen() or QApplication.primaryScreen()
+            if not screen:
+                return
+            avail = screen.availableGeometry()
+            frame = self.frameGeometry()
+            frame.moveCenter(avail.center())
+            self.move(frame.topLeft())
+        except Exception as e:
+            print(f"[UI] Centering failed: {e}")
+
+    def parse_rounds_to_win(self) -> int:
+        txt = (self.rounds_input.text() or "").strip()
+        try:
+            return int(txt) if txt else 0
+        except Exception:
+            return 0
+
+    def display_name(self, raw: str, fallback: str) -> str:
+        t = (raw or "").strip()
+        return t if t else fallback
+
+    def update_scoreboard_label(self):
+        p1 = self.display_name(self.player1_input.text(), "Player 1")
+        p2 = self.display_name(self.player2_input.text(), "Player 2")
+        self.scoreboard_label.setText(f"{p1} : {self.p1_score} – {self.p2_score} : {p2}")
+
+    def announce_start(self):
+        msg = (self.start_msg_input.text() or "").strip()
+        if not msg:
+            QMessageBox.warning(self, "No Message", "Please enter a start announcement message first.")
+            return
+        self._send_server_message(msg)
+
+    def _send_server_message(self, msg: str):
+        msg = self._format_with_tag((msg or "").strip())
+        if not msg:
+            return
+        if not self._ensure_game():
+            QMessageBox.warning(self, "Not Connected", "Cannot send message. Chivalry 2 is not connected.")
+            return
+        try:
+            # API already performs serversay; do not include the word "serversay" in msg
+            self.game.ServerSay(msg)
+        except Exception as e:
+            QMessageBox.warning(self, "Game Error", f"Failed to broadcast message to game:\n{str(e)}")
+
+
+    def adjust_score(self, player: int, delta: int):
+        if player == 1:
+            self.p1_score = max(0, self.p1_score + delta)
+        else:
+            self.p2_score = max(0, self.p2_score + delta)
+
+        # Broadcast the current scoreline
+        p1 = self.display_name(self.player1_input.text(), "Player 1")
+        p2 = self.display_name(self.player2_input.text(), "Player 2")
+        self._send_server_message(f"{p1} {self.p1_score} - {self.p2_score} {p2}")
+
+        self.update_scoreboard_label()
+        self._check_for_winner()
+
+
+    def _check_for_winner(self):
+        rounds = self.parse_rounds_to_win()
+        if rounds <= 0:
+            return  # no target set
+        winner = None
+        if self.p1_score >= rounds:
+            winner = 1
+        elif self.p2_score >= rounds:
+            winner = 2
+        if winner is None:
+            return
+        
+        # Announce win if message provided
+        result = f"{self.display_name(self.player1_input.text())} wins {self.p1_score} to {self.p2_score}."  if winner == 1 else f"{self.display_name(self.player2_input.text())} wins {self.p2_score} to {self.p1_score}."
+        win_msg = (self.win_msg_input.text() or "").strip()
+        self._send_server_message(result)
+        if win_msg:
+            self._send_server_message(win_msg)
+
+        # Disable adding further points until reset
+        self.add_p1_btn.setEnabled(False)
+        self.add_p2_btn.setEnabled(False)
+
+    def reset_score(self):
+        self.p1_score = 0
+        self.p2_score = 0
+        self.add_p1_btn.setEnabled(True)
+        self.add_p2_btn.setEnabled(True)
+        self.update_scoreboard_label()
+
+    def reset_board(self):
+        # Clear inputs and reset scores
+        self.rounds_input.clear()
+        self.player1_input.clear()
+        self.player2_input.clear()
+        self.start_msg_input.clear()
+        self.win_msg_input.clear()
+        self.reset_score()
+
+    def _format_with_tag(self, msg: str) -> str:
+        tag = (self.broadcast_tag_input.text() or "").strip()
+        if tag:
+            t = tag.strip()
+            if not (t.startswith("[") and t.endswith("]")):
+                t = f"[{t}]"
+            return f"{t} {msg}"
+        return msg
+
+    def _ensure_game(self) -> bool:
+        if self.game:
+            return True
+        try:
+            if check_chivalry_window():
+                self.game = GameChivalry()
+                self.chivalry_connected = True
+                return True
+        except Exception:
+            pass
+        return False
 
 # ---- Persistent last-used parameters (ban/kick/admin/server/add time) ----
 
