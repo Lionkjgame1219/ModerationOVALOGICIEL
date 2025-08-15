@@ -5,6 +5,10 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QTimer, QAbstractNativeEventFilter, QAbstractEventDispatcher
+from PyQt5.QtCore import QObject, QEvent
+from PyQt5.QtGui import QCursor
+from PyQt5.QtWidgets import QToolTip
+
 import pyperclip
 import time
 import os
@@ -55,6 +59,64 @@ class WinClipboardEventFilter(QAbstractNativeEventFilter):
 user32 = ctypes.windll.user32
 user32.AddClipboardFormatListener.argtypes = [wintypes.HWND]
 user32.AddClipboardFormatListener.restype = wintypes.BOOL
+
+class InstantToolTipFilter(QObject):
+    """Global event filter that shows tooltips after a small delay.
+    Suppresses the default delayed ToolTip event so we control timing.
+    """
+    def __init__(self, delay_ms=500, parent=None):
+        super().__init__(parent)
+        self.delay_ms = int(delay_ms)
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.timeout.connect(self._show_pending)
+        self._pending_widget = None
+
+    def eventFilter(self, obj, ev):
+        from PyQt5.QtWidgets import QWidget
+        et = ev.type()
+        if isinstance(obj, QWidget):
+            if et == QEvent.Enter:
+                if obj.toolTip():
+                    self._pending_widget = obj
+                    self._timer.start(self.delay_ms)
+                else:
+                    self._cancel()
+                return False
+            if et == QEvent.ToolTip:
+                # suppress the built-in delayed tooltip
+                return True
+            if et in (QEvent.Leave, QEvent.MouseButtonPress):
+                QToolTip.hideText()
+                self._cancel()
+                return False
+            if et == QEvent.MouseMove:
+                # keep timer running; no restart to avoid jitter
+                return False
+        return False
+
+    def _cancel(self):
+        if self._timer.isActive():
+            self._timer.stop()
+        self._pending_widget = None
+
+    def _show_pending(self):
+        w = self._pending_widget
+        self._pending_widget = None
+        if not w:
+            return
+        try:
+            # Only show if cursor still within widget and tooltip is set
+            if not w.toolTip():
+                return
+            pos = QCursor.pos()
+            if not w.rect().contains(w.mapFromGlobal(pos)):
+                return
+            QToolTip.showText(pos, w.toolTip(), w)
+        except Exception:
+            # Be robust: never break the app from tooltip logic
+            pass
+
 user32.RemoveClipboardFormatListener.argtypes = [wintypes.HWND]
 user32.RemoveClipboardFormatListener.restype = wintypes.BOOL
 
@@ -247,7 +309,6 @@ class ActionForm(QDialog):
         super().__init__(parent)
         self.setWindowTitle(f"{action_name} Player")
         self.resize(450, 350)
-        # Keep this dialog authoritative over its parent
         self.setModal(True)
         self.setWindowModality(Qt.WindowModal)
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
@@ -523,7 +584,7 @@ class PlayerActionDialog(QDialog):
     def __init__(self, player_id, player_name, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Actions for {player_name} (ID: {player_id})")
-        self.resize(320, 140)
+        self.resize(380, 150)
         self.setModal(True)
         self.setWindowModality(Qt.WindowModal)
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
@@ -549,7 +610,17 @@ class PlayerActionDialog(QDialog):
         btn_profile.clicked.connect(self.open_player_profile)
         layout.addWidget(btn_profile)
 
+        # Copy player ID button
+        btn_copy_id = QPushButton("Copy Player's PlayFabID")
+        btn_copy_id.setStyleSheet("background-color:#2ecc71; color: white; font-weight: bold;")
+        btn_copy_id.clicked.connect(self.copy_player_id)
+        layout.addWidget(btn_copy_id)
+
         self.setLayout(layout)
+
+    def copy_player_id(self):
+        pyperclip.copy(self.player_id)
+        QMessageBox.information(self, "PlayFabID Copied", f"Player's PlayFabID {self.player_id} copied to clipboard.")
 
     def ban_player(self):
         form = ActionForm("Ban", self.player_id, self.player_name, parent=self)
@@ -579,7 +650,7 @@ class PlayersWindow(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Players List")
-        self.resize(500, 750)
+        self.resize(600, 800)
         self.setModal(True)
         self.setWindowModality(Qt.ApplicationModal)
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
@@ -646,7 +717,6 @@ class PlayersWindow(QDialog):
             self.refresh_player_list()
 
     def refresh_player_list(self):
-        # Mark that we're waiting for clipboard update from the game
         self.awaiting_player_list = True
         try:
             if hasattr(self.game, 'ListPlayers'):
@@ -1149,9 +1219,9 @@ class AdminDashboard(QWidget):
         text = get_admin_preset(slot)
         if text:
             self.admin_message_input.setText(text)
-            QMessageBox.information(self, "Preset Loaded", f"Admin preset {slot} loaded successfully!")
+            QMessageBox.information(self, "Preset Loaded", f"Admin Message preset {slot} loaded successfully!")
         else:
-            QMessageBox.warning(self, "No Preset", f"No admin preset found in slot {slot}.")
+            QMessageBox.warning(self, "No Preset", f"No Admin Message preset found in slot {slot}.")
 
     def save_admin_preset(self, slot):
         text = self.admin_message_input.text().strip()
@@ -1159,21 +1229,21 @@ class AdminDashboard(QWidget):
             QMessageBox.warning(self, "Empty Message", "Please enter a message before saving to preset.")
             return
         set_admin_preset(slot, text)
-        QMessageBox.information(self, "Preset Saved", f"Admin preset saved to slot {slot} successfully!")
+        QMessageBox.information(self, "Preset Saved", f"Admin Message preset saved to slot {slot} successfully!")
         self.update_admin_preset_tooltips()
 
     def clear_admin_preset(self, slot):
         set_admin_preset(slot, "")
-        QMessageBox.information(self, "Preset Cleared", f"Admin preset {slot} cleared successfully!")
+        QMessageBox.information(self, "Preset Cleared", f"Admin Message preset {slot} cleared successfully!")
         self.update_admin_preset_tooltips()
 
     def load_server_preset(self, slot):
         text = get_server_preset(slot)
         if text:
             self.server_message_input.setText(text)
-            QMessageBox.information(self, "Preset Loaded", f"Server preset {slot} loaded successfully!")
+            QMessageBox.information(self, "Preset Loaded", f"Server Message preset {slot} loaded successfully!")
         else:
-            QMessageBox.warning(self, "No Preset", f"No server preset found in slot {slot}.")
+            QMessageBox.warning(self, "No Preset", f"No Server Message preset found in slot {slot}.")
 
     def save_server_preset(self, slot):
         text = self.server_message_input.text().strip()
@@ -1181,12 +1251,12 @@ class AdminDashboard(QWidget):
             QMessageBox.warning(self, "Empty Message", "Please enter a message before saving to preset.")
             return
         set_server_preset(slot, text)
-        QMessageBox.information(self, "Preset Saved", f"Server preset saved to slot {slot} successfully!")
+        QMessageBox.information(self, "Preset Saved", f"Server Message preset saved to slot {slot} successfully!")
         self.update_server_preset_tooltips()
 
     def clear_server_preset(self, slot):
         set_server_preset(slot, "")
-        QMessageBox.information(self, "Preset Cleared", f"Server preset {slot} cleared successfully!")
+        QMessageBox.information(self, "Preset Cleared", f"Server Message preset {slot} cleared successfully!")
         self.update_server_preset_tooltips()
 
 
@@ -1332,7 +1402,6 @@ class AdminDashboard(QWidget):
         dlg.setLabelText(label)
         dlg.setTextValue(text)
         dlg.setInputMode(QInputDialog.TextInput)
-        # Make dialog and input wide enough for full webhook URLs
         dlg.resize(900, 150)
         try:
             le = dlg.findChild(QLineEdit)
@@ -1378,7 +1447,7 @@ class AdminDashboard(QWidget):
         if primary_url and not primary_url.startswith("https://discord.com/api/webhooks/"):
             QMessageBox.warning(
                 self,
-                "Invalid Primary URL",
+                "Invalid URL",
                 "Primary Discord webhook URL must start with:\n"
                 "https://discord.com/api/webhooks/"
             )
@@ -1398,7 +1467,7 @@ class AdminDashboard(QWidget):
                 if not secondary_url.startswith("https://discord.com/api/webhooks/"):
                     QMessageBox.warning(
                         self,
-                        "Invalid Secondary URL",
+                        "Invalid URL",
                         "Secondary Discord webhook URL must start with:\n"
                         "https://discord.com/api/webhooks/"
                     )
@@ -1620,7 +1689,7 @@ def write_localconfig_lines(lines):
         return False
 
 
-# We keep existing layout:
+# localconfig layout:
 # 0: primary webhook
 # 1: secondary webhook
 # 2: discord user id
@@ -2084,6 +2153,10 @@ def apply_light_theme(app):
 
 def main():
     app = QApplication(sys.argv)
+    # Install global tooltip filter with 0.5s delay
+    app._instant_tt = InstantToolTipFilter(delay_ms=500)
+    app.installEventFilter(app._instant_tt)
+
 
     # Load and apply saved theme preference
     is_dark_theme = load_theme_preference()
