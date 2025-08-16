@@ -254,14 +254,22 @@ def MessageForAdmin(user_id, username, reason, duration_or_msg, category):
         )
 
     elif category == "ft":
-        embed.description = "A **First to match** has been completed"
+        embed.description = "A **First To match** has been completed"
         embed.add_field(
             name="Results",
             value=f"\n{reason}",
             inline=False
         )
 
-    embed.add_field(name="Moderator", value=f"<@{moderator_id}>", inline=False)
+    if category != "ft":
+        embed.add_field(name="Moderator",
+                        value=f"<@{moderator_id}>",
+                        inline=False)
+    else:
+        embed.add_field(name="Referee",
+                        value=f"<@{moderator_id}>",
+                        inline=False)
+
     embed.set_footer(text="Admin Interface")
 
     # Send to primary webhook

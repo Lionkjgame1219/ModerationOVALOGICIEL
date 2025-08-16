@@ -1901,7 +1901,7 @@ class FirstToScoreboardWindow(QDialog):
         # Broadcast the current scoreline
         p1 = self.display_name(self.player1_input.text(), "Player 1")
         p2 = self.display_name(self.player2_input.text(), "Player 2")
-        self._send_server_message(f"{p1} {self.p1_score} - {self.p2_score} {p2}")
+        self._send_server_message(f"{p1} : {self.p1_score} - {self.p2_score} : {p2}")
 
         self.update_scoreboard_label()
         self._check_for_winner()
@@ -1920,9 +1920,11 @@ class FirstToScoreboardWindow(QDialog):
             return
         
         # Announce win if message provided
-        result = f"{self.display_name(self.player1_input.text())} wins {self.p1_score} to {self.p2_score}"  if winner == 1 else f"{self.display_name(self.player2_input.text())} wins {self.p2_score} to {self.p1_score}"
+        result = f"{self.display_name(self.player1_input.text(), "")} wins {self.p1_score} to {self.p2_score}"  if winner == 1 else f"{self.display_name(self.player2_input.text(), "")} wins {self.p2_score} to {self.p1_score}"
         
-        discord_result += f" against {self.player2_input.text()}." if winner == 1 else f" against {self.player1_input.text()}."
+        discord_result = ""
+        discord_result = result
+        discord_result += f" against {self.display_name(self.player2_input.text(), "")}." if winner == 1 else f" against {self.display_name(self.player1_input.text(), "")}."
         result += "."
         
         win_msg = (self.win_msg_input.text() or "").strip()
@@ -1931,7 +1933,7 @@ class FirstToScoreboardWindow(QDialog):
             self._send_server_message(win_msg)
 
         # Send Discord notification
-        wehbooks.MessageForAdmin("N/A", "N/A", result, None, "ft")
+        wehbooks.MessageForAdmin("N/A", "N/A", discord_result, None, "ft")
 
         # Disable adding further points until reset
         self.add_p1_btn.setEnabled(False)
