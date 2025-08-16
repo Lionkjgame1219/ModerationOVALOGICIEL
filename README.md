@@ -84,6 +84,13 @@ You will now have access to the dashboard. Everything should be pretty straightf
 
    3. The third button is gonna be a redirect link to the player's tracker profile on the website **"chivalry2stats.com"**, the most visited site for this matter. Useful to find any old username associated to the player's account.
 
+   4. And the forth will just let you copy in your clipboard the player's PlayFabID.
+
+Next buttons in the main dashboard :
+
+- **"Add Time"** is just a button to add time to the map. Note that you can provide a negative value to substract time to the map.
+(e.g. "-10" to substract 10 minutes)
+
 - **"Match Arbitration"** is a menu that allow you to act as a referee in a match. Here are the options : 
 
   a - **Rounds to win** let's you configure the number of rounds to win before declaring the end of the match.
@@ -104,8 +111,7 @@ You will now have access to the dashboard. Everything should be pretty straightf
  
   i - **Reset board** allow you reset every options listed above.
 
-- **"Add Time"** is just a button to add time to the map. Note that you can provide a negative value to substract time to the map.
-(e.g. "-10" to substract 10 minutes)
+Let's get back to the main dashboard.
 
 - **"Admin Message"** is going to be sending an "adminsay" command, along with the text you provided.
 
