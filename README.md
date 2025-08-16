@@ -102,14 +102,16 @@ Next buttons in the main dashboard :
   d - **Tag prefix** let's you insert a tag for every messages sent in the context of the match arbitration (e.g. (Tournament) Player 1 : 3 - 1 : Player 2).
  
   e - **Announce the start of the match** is pretty self-explanatory.
+
+  f - **Broadcast match results to Discord** allows you to specify if a discord notification should be sent to the channel linked to the webhook(s) you entered, if any.
  
-  f - **Name** let's you provide the names of the players / teams participating.
+  g - **Name** let's you provide the names of the players / teams participating.
  
-  g - **Add / Remove 1 Point**, do I really need to explain ?
+  h - **Add / Remove 1 Point**, do I really need to explain ?
  
-  h - **Reset score** let's you set the score to 0 - 0.
+  i - **Reset score** let's you set the score to 0 - 0.
  
-  i - **Reset board** allow you reset every options listed above.
+  j - **Reset board** allow you reset every options listed above.
 
 Let's get back to the main dashboard.
 
