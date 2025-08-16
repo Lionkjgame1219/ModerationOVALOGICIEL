@@ -213,10 +213,10 @@ def get_webhook_status():
         'any_active': webhook_primary is not None or webhook_secondary is not None
     }
 
-def MessageForAdmin(user_id, username, reason, duration_or_msg, categorie):
+def MessageForAdmin(user_id, username, reason, duration_or_msg, category):
     # Check if any webhook is initialized
     if webhook_primary is None and webhook_secondary is None:
-        print(f"[WEBHOOK] Discord webhooks not configured, skipping notification for {categorie}")
+        print(f"[WEBHOOK] Discord webhooks not configured, skipping notification for {category}")
         return
 
     # Get Discord user ID from config
@@ -229,7 +229,7 @@ def MessageForAdmin(user_id, username, reason, duration_or_msg, categorie):
         timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
 
-    if categorie == "ban":
+    if category == "ban":
         embed.description = "A **ban** has been executed"
         embed.add_field(
             name="Information",
@@ -237,7 +237,7 @@ def MessageForAdmin(user_id, username, reason, duration_or_msg, categorie):
             inline=False
         )
 
-    elif categorie == "unban":
+    elif category == "unban":
         embed.description = "An **unban** has been executed"
         embed.add_field(
             name="Information",
@@ -245,11 +245,19 @@ def MessageForAdmin(user_id, username, reason, duration_or_msg, categorie):
             inline=False
         )
 
-    elif categorie == "kick":
+    elif category == "kick":
         embed.description = "A **kick** has been executed"
         embed.add_field(
             name="Information",
             value=f"\nPlayFabID: {user_id}\nUsername: {username}\nReason: {reason}",
+            inline=False
+        )
+
+    elif category == "ft":
+        embed.description = "A **First to match** has been completed"
+        embed.add_field(
+            name="Results",
+            value=f"\n{reason}",
             inline=False
         )
 
@@ -260,7 +268,7 @@ def MessageForAdmin(user_id, username, reason, duration_or_msg, categorie):
     if webhook_primary:
         try:
             webhook_primary.send(username="Admin Bot", embed=embed)
-            print(f"[WEBHOOK] Primary Discord notification sent for {categorie}")
+            print(f"[WEBHOOK] Primary Discord notification sent for {category}")
         except Exception as e:
             print(f"[WEBHOOK] Failed to send primary Discord notification: {str(e)}")
 
@@ -268,7 +276,7 @@ def MessageForAdmin(user_id, username, reason, duration_or_msg, categorie):
     if webhook_secondary:
         try:
             webhook_secondary.send(username="Admin Bot", embed=embed)
-            print(f"[WEBHOOK] Secondary Discord notification sent for {categorie}")
+            print(f"[WEBHOOK] Secondary Discord notification sent for {category}")
         except Exception as e:
             print(f"[WEBHOOK] Failed to send secondary Discord notification: {str(e)}")
 

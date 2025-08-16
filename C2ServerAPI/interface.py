@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QDialog,
-    QFormLayout, QLineEdit, QDialogButtonBox, QMessageBox, QListWidget, QHBoxLayout, QGroupBox, QSpacerItem, QSizePolicy, QInputDialog, QProgressBar
+    QFormLayout, QLineEdit, QDialogButtonBox, QMessageBox, QListWidget, QHBoxLayout, QGroupBox, QSpacerItem, QSizePolicy, QInputDialog, QProgressBar, QCheckBox
 )
 from PyQt5.QtGui import QFont, QIntValidator
 from PyQt5.QtCore import Qt, QTimer, QAbstractNativeEventFilter, QAbstractEventDispatcher
@@ -1751,6 +1751,11 @@ class FirstToScoreboardWindow(QDialog):
         b_l = QVBoxLayout()
         b_l.setContentsMargins(12, 8, 12, 8)
 
+        notification_row = QHBoxLayout()
+
+        self.ft_discord_notification = QCheckBox("Broadcast match results to Discord")
+        self.ft_discord_notification.setChecked(False)
+
         tag_row = QHBoxLayout()
         tag_row.addWidget(QLabel("Tag prefix (optional):"))
         self.broadcast_tag_input = QLineEdit()
@@ -1769,6 +1774,10 @@ class FirstToScoreboardWindow(QDialog):
         self.announce_start_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.announce_start_btn.clicked.connect(self.announce_start)
         b_l.addWidget(self.announce_start_btn)
+
+        notification_row.addWidget(self.ft_discord_notification)
+        notification_row.setAlignment(Qt.AlignCenter)
+        b_l.addLayout(notification_row)
 
         broadcast.setLayout(b_l)
         main.addWidget(broadcast)
@@ -1901,7 +1910,7 @@ class FirstToScoreboardWindow(QDialog):
     def _check_for_winner(self):
         rounds = self.parse_rounds_to_win()
         if rounds <= 0:
-            return  # no target set
+            return
         winner = None
         if self.p1_score >= rounds:
             winner = 1
@@ -1911,11 +1920,18 @@ class FirstToScoreboardWindow(QDialog):
             return
         
         # Announce win if message provided
-        result = f"{self.display_name(self.player1_input.text())} wins {self.p1_score} to {self.p2_score}."  if winner == 1 else f"{self.display_name(self.player2_input.text())} wins {self.p2_score} to {self.p1_score}."
+        result = f"{self.display_name(self.player1_input.text())} wins {self.p1_score} to {self.p2_score}"  if winner == 1 else f"{self.display_name(self.player2_input.text())} wins {self.p2_score} to {self.p1_score}"
+        
+        discord_result += f" against {self.player2_input.text()}." if winner == 1 else f" against {self.player1_input.text()}."
+        result += "."
+        
         win_msg = (self.win_msg_input.text() or "").strip()
         self._send_server_message(result)
         if win_msg:
             self._send_server_message(win_msg)
+
+        # Send Discord notification
+        wehbooks.MessageForAdmin("N/A", "N/A", result, None, "ft")
 
         # Disable adding further points until reset
         self.add_p1_btn.setEnabled(False)
